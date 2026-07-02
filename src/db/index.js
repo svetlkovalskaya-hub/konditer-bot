@@ -64,6 +64,13 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_orders_client ON orders(client_id);
 `);
 
+// Migration: add phone column if it doesn't exist
+const phoneColumn = db.prepare("PRAGMA table_info(orders)").all().find((col) => col.name === 'phone');
+if (!phoneColumn) {
+  db.exec('ALTER TABLE orders ADD COLUMN phone TEXT');
+  console.log('Миграция: добавлена колонка phone в таблицу orders');
+}
+
 function seedProducts() {
   const existing = db.prepare('SELECT COUNT(*) as count FROM products').get();
   if (existing.count > 0) return;

@@ -34,7 +34,7 @@ function startNewOrder(bot, msg) {
   session.clientUsername = msg.from.username || '';
   session.photos = [];
 
-  bot.sendMessage(msg.chat.id, 'Как к вам обращаться? Напишите ваше имя.');
+  bot.sendMessage(msg.chat.id, 'Как вас зовут? Напишите имя.');
 }
 
 function canReschedule(order) {
@@ -117,8 +117,8 @@ function handleCallback(bot, query) {
   if (data === 'delivery_type_pickup') {
     session.isPickup = true;
     session.address = 'Самовывоз';
-    session.step = 'comment';
-    bot.sendMessage(chatId, 'Напишите комментарий к заказу: дизайн, пожелания, аллергены. Если нечего добавить — напишите "-".');
+    session.step = 'phone';
+    bot.sendMessage(chatId, 'Напишите ваш контактный телефон, чтобы мы могли связаться по заказу.');
     return;
   }
 
@@ -202,14 +202,6 @@ function handleMessage(bot, msg) {
   if (session.step === 'name') {
     if (!msg.text) return;
     session.clientName = msg.text.trim();
-    session.step = 'phone';
-    bot.sendMessage(chatId, 'Напишите ваш контактный телефон, чтобы мы могли связаться по заказу.');
-    return;
-  }
-
-  if (session.step === 'phone') {
-    if (!msg.text) return;
-    session.phone = msg.text.trim();
     session.step = 'product';
     const products = orderService.getProducts();
     bot.sendMessage(chatId, `Спасибо, ${session.clientName}! Что хотите заказать? Выберите изделие:`, keyboards.productKeyboard(products));
@@ -232,6 +224,14 @@ function handleMessage(bot, msg) {
   if (session.step === 'address') {
     if (!msg.text) return;
     session.address = msg.text.trim();
+    session.step = 'phone';
+    bot.sendMessage(chatId, 'Напишите ваш контактный телефон, чтобы мы могли связаться по заказу.');
+    return;
+  }
+
+  if (session.step === 'phone') {
+    if (!msg.text) return;
+    session.phone = msg.text.trim();
     session.step = 'comment';
     bot.sendMessage(chatId, 'Напишите комментарий к заказу: дизайн, пожелания, аллергены. Если нечего добавить — напишите "-".');
     return;
