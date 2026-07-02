@@ -283,4 +283,5 @@ module.exports = {
   startNewOrder,
   handleCallback,
   handleMessage,
+  resetSession,
 };
