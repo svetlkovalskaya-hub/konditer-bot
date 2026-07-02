@@ -20,8 +20,9 @@ function formatOrderShort(order) {
   const time = order.delivery_time || '—';
   const product = order.product_name || '—';
   const client = order.client_name || order.client_username || `id${order.client_id}`;
-  const phone = order.phone ? `, 📞 ${order.phone}` : '';
-  return `#${order.id} — ${date} ${time}\n${product}\n👤 ${client}${phone}\nСтатус: ${order.status}`;
+  const phone = order.phone || '—';
+  const status = order.status || '—';
+  return `${date} ${time}\n${product}\n${client}\n${phone}\nЗаказ #${order.id}\n${status}`;
 }
 
 function formatOrderFull(order) {

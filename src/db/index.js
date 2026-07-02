@@ -32,7 +32,7 @@ db.exec(`
     is_pickup INTEGER DEFAULT 0,
     phone TEXT,
     comment TEXT,
-    status TEXT DEFAULT 'pending',
+    status TEXT DEFAULT 'создан',
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
   );

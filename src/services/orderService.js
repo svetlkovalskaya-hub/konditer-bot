@@ -96,10 +96,10 @@ function getOrderById(orderId) {
 }
 
 function getOrders(status = null, limit = 50) {
-  let sql = 'SELECT * FROM orders';
-  const params = [];
+  let sql = 'SELECT * FROM orders WHERE status != ?';
+  const params = ['cancelled'];
   if (status) {
-    sql += ' WHERE status = ?';
+    sql += ' AND status = ?';
     params.push(status);
   }
   sql += ' ORDER BY delivery_date ASC, delivery_time ASC LIMIT ?';
