@@ -118,7 +118,10 @@ function handleCallback(bot, query) {
   }
 
   if (data === 'order_yes') {
-    createOrderFromSession(bot, chatId, session, userId);
+    createOrderFromSession(bot, chatId, session, userId).catch((err) => {
+      console.error('Ошибка при создании заказа:', err);
+      bot.sendMessage(chatId, 'Произошла ошибка при сохранении заказа. Попробуйте ещё раз через /start.');
+    });
     return;
   }
 
@@ -194,6 +197,7 @@ function handleMessage(bot, msg) {
 }
 
 async function createOrderFromSession(bot, chatId, session, userId) {
+  console.log('Создание заказа:', { client_id: session.clientId, product_id: session.productId, date: session.deliveryDate });
   const result = orderService.createOrder({
     client_id: session.clientId,
     client_name: session.clientName,
@@ -242,6 +246,7 @@ async function createOrderFromSession(bot, chatId, session, userId) {
 
   resetSession(userId);
   bot.sendMessage(chatId, `Заказ #${orderId} создан! Скоро с вами свяжемся для подтверждения.`);
+  console.log('Заказ создан:', orderId);
 
   notifyAdmin(bot, orderId);
 }
