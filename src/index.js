@@ -15,6 +15,16 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+app.get('/reset-webhook', async (req, res) => {
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${config.telegramToken}/deleteWebhook`);
+    const data = await response.json();
+    res.json({ ok: true, telegram: data });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 app.listen(config.port, () => {
   console.log(`Сервер запущен на порту ${config.port}`);
 });
