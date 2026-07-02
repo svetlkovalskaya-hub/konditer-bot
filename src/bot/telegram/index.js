@@ -122,7 +122,7 @@ function init() {
       bot.sendMessage(chatId, 'У вас пока нет активных заказов, которые можно перенести.', keyboards.mainMenuKeyboard());
       return;
     }
-    const rows = orders.map((o) => [{ text: `#${o.id} ${dateUtils.formatDate(o.delivery_date)} ${o.delivery_time || ''} — ${o.product_name || '—'}`, callback_data: `reschedule_order_${o.id}` }]);
+    const rows = orders.map((o) => [{ text: `#${o.id} — ${o.product_name || '—'} — ${dateUtils.formatDate(o.delivery_date)} ${o.delivery_time || ''}`, callback_data: `reschedule_order_${o.id}` }]);
     bot.sendMessage(chatId, 'Выберите заказ для переноса:', {
       reply_markup: { inline_keyboard: rows },
     });

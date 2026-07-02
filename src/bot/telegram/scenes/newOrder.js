@@ -160,7 +160,8 @@ function handleCallback(bot, query) {
     session.step = 'reschedule_date';
     session.rescheduleOrderId = orderId;
     session.rescheduleOldDate = order.delivery_date;
-    bot.sendMessage(chatId, `Вы переносите заказ #${orderId} с ${dateUtils.formatDate(order.delivery_date)}. Выберите новую дату:`, keyboards.calendarKeyboard(dateUtils.todayStr()));
+    session.rescheduleProductName = order.product_name || '—';
+    bot.sendMessage(chatId, `Вы переносите заказ #${orderId} (${session.rescheduleProductName}) с ${dateUtils.formatDate(order.delivery_date)}. Выберите новую дату:`, keyboards.calendarKeyboard(dateUtils.todayStr()));
     return;
   }
 
@@ -176,7 +177,9 @@ function handleCallback(bot, query) {
       resetSession(userId);
       return;
     }
-    bot.sendMessage(chatId, `Заказ #${session.rescheduleOrderId} перенесён с ${dateUtils.formatDate(session.rescheduleOldDate)} на ${dateUtils.formatDate(dateStr)}.`, keyboards.mainMenuKeyboard());
+    const productName = session.rescheduleProductName || '—';
+    bot.sendMessage(chatId, `Заказ #${session.rescheduleOrderId} (${productName}) перенесён с ${dateUtils.formatDate(session.rescheduleOldDate)} на ${dateUtils.formatDate(dateStr)}.`, keyboards.mainMenuKeyboard());
+    notifyAdminReschedule(bot, session.rescheduleOrderId, session.rescheduleOldDate, dateStr, productName);
     resetSession(userId);
     return;
   }
@@ -335,6 +338,17 @@ function notifyAdmin(bot, orderId) {
     `Статус: ${order.status}`,
   ].join('\n');
 
+  bot.sendMessage(config.adminTelegramId, text);
+}
+
+function notifyAdminReschedule(bot, orderId, oldDate, newDate, productName) {
+  if (!config.adminTelegramId) return;
+  const text = [
+    `🔄 Перенос заказа #${orderId}`,
+    `Изделие: ${productName || '—'}`,
+    `Старая дата: ${dateUtils.formatDate(oldDate)}`,
+    `Новая дата: ${dateUtils.formatDate(newDate)}`,
+  ].join('\n');
   bot.sendMessage(config.adminTelegramId, text);
 }
 
