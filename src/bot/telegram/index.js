@@ -32,7 +32,7 @@ function init() {
   }
 
   bot.onText(/\/start/, (msg) => {
-    sendMainMenu(bot, msg.chat.id, msg.from.id);
+    sendMainMenu(msg.chat.id, msg.from.id);
   });
 
   bot.onText(/\/myorders/, (msg) => {
