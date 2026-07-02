@@ -96,11 +96,11 @@ function init() {
         admin.showOrdersList(bot, chatId);
         return;
       }
-      if (text === '🔍 Поиск по имени клиента') {
+      if (text === '🔍 Найти по имени') {
         admin.askSearchByName(bot, chatId, userId);
         return;
       }
-      if (text === '📞 Поиск по номеру телефона') {
+      if (text === '📞 Поиск по телефону') {
         admin.askSearchByPhone(bot, chatId, userId);
         return;
       }
@@ -108,7 +108,7 @@ function init() {
         admin.askDeleteOrder(bot, chatId, userId);
         return;
       }
-      if (text === '🔄 Перенести запись на другое время') {
+      if (text === '🔄 Перенести запись') {
         admin.askRescheduleOrder(bot, chatId, userId);
         return;
       }
