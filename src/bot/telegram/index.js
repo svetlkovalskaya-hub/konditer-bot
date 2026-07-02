@@ -15,6 +15,10 @@ function init() {
 
   bot = new TelegramBot(config.telegramToken, { polling: true });
 
+  bot.deleteWebhook().catch((err) => {
+    console.error('Не удалось удалить webhook:', err.message);
+  });
+
   if (config.adminTelegramId) {
     orderService.setAdmin(config.adminTelegramId, 'Главный админ');
   }
