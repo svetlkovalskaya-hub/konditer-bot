@@ -112,6 +112,18 @@ function searchOrdersByClientName(name, limit = 50) {
   return db.prepare(sql).all(`%${name}%`, 'cancelled', limit);
 }
 
+function searchOrdersByPhone(phone, limit = 50) {
+  const sql = "SELECT * FROM orders WHERE phone LIKE ? AND status != ? ORDER BY delivery_date ASC, delivery_time ASC LIMIT ?";
+  return db.prepare(sql).all(`%${phone}%`, 'cancelled', limit);
+}
+
+function deleteOrder(orderId) {
+  const info = db.prepare(
+    "UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+  ).run('cancelled', orderId);
+  return { ok: info.changes > 0 };
+}
+
 function updateOrderStatus(orderId, status) {
   return db.prepare(
     "UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
@@ -189,6 +201,8 @@ module.exports = {
   getOrderById,
   getOrders,
   searchOrdersByClientName,
+  searchOrdersByPhone,
+  deleteOrder,
   updateOrderStatus,
   rescheduleOrder,
   blockDate,

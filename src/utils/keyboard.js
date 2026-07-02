@@ -91,7 +91,10 @@ function mainMenuKeyboard(isAdmin = false) {
     return {
       reply_markup: {
         keyboard: [
-          [{ text: '📋 Список заказов' }, { text: '🔍 Поиск по имени' }],
+          [{ text: '📋 Список заказов' }],
+          [{ text: '🔍 Поиск по имени клиента' }, { text: '📞 Поиск по номеру телефона' }],
+          [{ text: '❌ Удалить заказ' }, { text: '🔄 Перенести запись на другое время' }],
+          [{ text: '🏠 Общее меню' }],
         ],
         resize_keyboard: true,
         one_time_keyboard: false,

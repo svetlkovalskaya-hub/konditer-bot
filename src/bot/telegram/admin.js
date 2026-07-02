@@ -1,194 +1,196 @@
+const keyboards = require('../../utils/keyboard');
 const orderService = require('../../services/orderService');
-const dateUtils = require('../../utils/date');
-const config = require('../../config');
 
-function isAdmin(bot, msg, next) {
-  if (!orderService.isAdmin(msg.from.id)) {
-    bot.sendMessage(msg.chat.id, 'Эта команда только для администратора.');
+const adminStates = new Map();
+
+function getAdminState(userId) {
+  return adminStates.get(userId) || { action: 'idle' };
+}
+
+function setAdminState(userId, state) {
+  adminStates.set(userId, state);
+}
+
+function resetAdminState(userId) {
+  adminStates.set(userId, { action: 'idle' });
+}
+
+function formatOrderShort(order) {
+  const date = orderService.formatDate(order.delivery_date);
+  const time = order.delivery_time || '—';
+  const product = order.product_name || '—';
+  const client = order.client_name || order.client_username || `id${order.client_id}`;
+  const phone = order.phone ? `, 📞 ${order.phone}` : '';
+  return `#${order.id} — ${date} ${time}\n${product}\n👤 ${client}${phone}\nСтатус: ${order.status}`;
+}
+
+function formatOrderFull(order) {
+  const lines = [
+    `Заказ #${order.id}`,
+    `Статус: ${order.status}`,
+    '',
+    `👤 Клиент: ${order.client_name || order.client_username || `id${order.client_id}`}`,
+  ];
+  if (order.phone) lines.push(`📞 Телефон: ${order.phone}`);
+  if (order.client_username) lines.push(`💬 Telegram: @${order.client_username}`);
+  lines.push(
+    `🎂 Изделие: ${order.product_name || '—'}`,
+    `📅 Дата: ${orderService.formatDate(order.delivery_date)}`,
+    `⏰ Время: ${order.delivery_time || '—'}`,
+    order.is_pickup ? '🔁 Способ получения: самовывоз' : `📍 Адрес: ${order.address || '—'}`,
+  );
+  if (order.comment) lines.push(`💬 Комментарий: ${order.comment}`);
+  lines.push('', `Создан: ${order.created_at}`);
+  return lines.join('\n');
+}
+
+async function showAdminPanel(bot, chatId, userId) {
+  resetAdminState(userId);
+  await bot.sendMessage(chatId, 'Привет! Это панель кондитера. Выберите действие:', keyboards.mainMenuKeyboard(true));
+}
+
+async function showOrdersList(bot, chatId) {
+  const orders = orderService.getOrders(null, 50);
+  if (!orders.length) {
+    await bot.sendMessage(chatId, 'Заказов пока нет.', keyboards.mainMenuKeyboard(true));
     return;
   }
-  next();
+  for (let i = 0; i < orders.length; i += 5) {
+    const chunk = orders.slice(i, i + 5);
+    const text = chunk.map(formatOrderShort).join('\n\n');
+    await bot.sendMessage(chatId, text, keyboards.mainMenuKeyboard(true));
+  }
 }
 
-function register(bot) {
-  bot.onText(/\/addproduct/, (msg) => {
-    isAdmin(bot, msg, () => {
-      bot.sendMessage(msg.chat.id, 'Напишите название продукта. Можно сразу с описанием через |, например:\nТорт|Классический торт на заказ');
-      const handler = (reply) => {
-        if (reply.from.id !== msg.from.id || !reply.text || reply.text.startsWith('/')) return;
-        bot.removeListener('message', handler);
-        const [name, description] = reply.text.split('|').map((s) => s.trim());
-        if (!name) {
-          bot.sendMessage(msg.chat.id, 'Название не может быть пустым. Попробуйте /addproduct ещё раз.');
-          return;
-        }
-        orderService.addProduct(name, description || null);
-        bot.sendMessage(msg.chat.id, `Продукт «${name}» добавлен.`);
-      };
-      bot.on('message', handler);
-    });
-  });
+async function askSearchByName(bot, chatId, userId) {
+  setAdminState(userId, { action: 'search_name' });
+  await bot.sendMessage(chatId, 'Введите имя клиента или его часть:', keyboards.mainMenuKeyboard(true));
+}
 
-  bot.onText(/\/products/, (msg) => {
-    isAdmin(bot, msg, () => {
-      const products = orderService.getProducts(false);
-      if (!products.length) {
-        bot.sendMessage(msg.chat.id, 'Пока нет продуктов.');
-        return;
-      }
-      const text = products
-        .map((p) => `${p.is_active ? '✅' : '⏸'} ${p.id}. ${p.name}${p.description ? ` — ${p.description}` : ''}`)
-        .join('\n');
-      bot.sendMessage(msg.chat.id, `Каталог:\n${text}`);
-    });
-  });
+async function askSearchByPhone(bot, chatId, userId) {
+  setAdminState(userId, { action: 'search_phone' });
+  await bot.sendMessage(chatId, 'Введите номер телефона клиента:', keyboards.mainMenuKeyboard(true));
+}
 
-  bot.onText(/\/orders/, (msg) => {
-    isAdmin(bot, msg, () => {
-      const orders = orderService.getOrders(null, 20);
-      if (!orders.length) {
-        bot.sendMessage(msg.chat.id, 'Нет заказов.');
-        return;
-      }
-      const text = orders
-        .map((o) => `#${o.id} ${dateUtils.formatDate(o.delivery_date)} ${o.delivery_time || ''} — ${o.product_name || '—'} (${o.status})`)
-        .join('\n');
-      bot.sendMessage(msg.chat.id, `Последние заказы:\n${text}\n\nДля деталей: /order N`);
-    });
-  });
+async function askDeleteOrder(bot, chatId, userId) {
+  setAdminState(userId, { action: 'delete_order' });
+  await bot.sendMessage(chatId, 'Введите номер заказа, который нужно удалить:', keyboards.mainMenuKeyboard(true));
+}
 
-  bot.onText(/\/order (\d+)/, (msg, match) => {
-    isAdmin(bot, msg, () => {
-      const orderId = Number(match[1]);
-      const order = orderService.getOrderById(orderId);
-      if (!order) {
-        bot.sendMessage(msg.chat.id, `Заказ #${orderId} не найден.`);
-        return;
-      }
-      const photos = orderService.getOrderPhotos(orderId);
-      const text = [
-        `Заказ #${order.id}`,
-        `Статус: ${order.status}`,
-        `Изделие: ${order.product_name || '—'}`,
-        `Клиент: ${order.client_name || '—'} @${order.client_username || '—'} ID: ${order.client_id}`,
-        `Телефон: ${order.phone || '—'}`,
-        `Дата: ${dateUtils.formatDate(order.delivery_date)} ${order.delivery_time || ''}`,
-        `Адрес: ${order.is_pickup ? 'Самовывоз' : order.address}`,
-        `Комментарий: ${order.comment || '—'}`,
-        `Фото: ${photos.length}`,
-      ].join('\n');
+async function askRescheduleOrder(bot, chatId, userId) {
+  setAdminState(userId, { action: 'reschedule_order_number' });
+  await bot.sendMessage(chatId, 'Введите номер заказа, который нужно перенести:', keyboards.mainMenuKeyboard(true));
+}
 
-      bot.sendMessage(msg.chat.id, text);
+async function handleAdminMessage(bot, msg, userId) {
+  const chatId = msg.chat.id;
+  const text = msg.text ? msg.text.trim() : '';
+  const state = getAdminState(userId);
 
-      for (const photo of photos) {
-        if (photo.file_id) {
-          bot.sendPhoto(msg.chat.id, photo.file_id);
-        }
-      }
-    });
-  });
-
-  bot.onText(/\/confirm (\d+)/, (msg, match) => {
-    isAdmin(bot, msg, () => {
-      const orderId = Number(match[1]);
-      orderService.updateOrderStatus(orderId, 'confirmed');
-      bot.sendMessage(msg.chat.id, `Заказ #${orderId} подтверждён.`);
-      notifyClient(bot, orderId, 'Ваш заказ подтверждён!');
-    });
-  });
-
-  bot.onText(/\/cancel (\d+)/, (msg, match) => {
-    isAdmin(bot, msg, () => {
-      const orderId = Number(match[1]);
-      orderService.updateOrderStatus(orderId, 'cancelled');
-      bot.sendMessage(msg.chat.id, `Заказ #${orderId} отменён.`);
-      notifyClient(bot, orderId, 'К сожалению, ваш заказ отменён. Свяжитесь с нами, если это ошибка.');
-    });
-  });
-
-  bot.onText(/\/reschedule (\d+) (\d{4}-\d{2}-\d{2})/, (msg, match) => {
-    isAdmin(bot, msg, () => {
-      const orderId = Number(match[1]);
-      const newDate = match[2];
-      const result = orderService.rescheduleOrder(orderId, newDate);
-      if (!result.ok) {
-        if (result.error === 'not_found') {
-          bot.sendMessage(msg.chat.id, `Заказ #${orderId} не найден.`);
-        } else if (result.error === 'cancelled') {
-          bot.sendMessage(msg.chat.id, 'Нельзя перенести отменённый заказ.');
-        } else if (result.error === 'date_unavailable') {
-          const altText = result.alternatives
-            .map((d, i) => `${i + 1}. ${dateUtils.formatDate(d)}`)
-            .join('\n');
-          bot.sendMessage(msg.chat.id, `Дата ${dateUtils.formatDate(newDate)} занята. Альтернативы:\n${altText}`);
-        }
-        return;
-      }
-      bot.sendMessage(msg.chat.id, `Заказ #${orderId} перенесён на ${dateUtils.formatDate(newDate)}.`);
-      notifyClient(bot, orderId, `Ваш заказ перенесён на ${dateUtils.formatDate(newDate)}.`);
-    });
-  });
-
-  bot.onText(/\/blockdate( .+)?/, (msg, match) => {
-    isAdmin(bot, msg, () => {
-      const rest = match[1] ? match[1].trim() : '';
-      const [dateStr, ...reasonParts] = rest.split(' ');
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-        bot.sendMessage(msg.chat.id, 'Формат: /blockdate YYYY-MM-DD [причина]');
-        return;
-      }
-      const reason = reasonParts.join(' ') || null;
-      const result = orderService.blockDate(dateStr, reason);
-      if (!result.ok) {
-        bot.sendMessage(msg.chat.id, `Дата ${dateUtils.formatDate(dateStr)} уже заблокирована.`);
-        return;
-      }
-      bot.sendMessage(msg.chat.id, `Дата ${dateUtils.formatDate(dateStr)} заблокирована.`);
-    });
-  });
-
-  bot.onText(/\/unblockdate (\d{4}-\d{2}-\d{2})/, (msg, match) => {
-    isAdmin(bot, msg, () => {
-      const dateStr = match[1];
-      const result = orderService.unblockDate(dateStr);
-      bot.sendMessage(
-        msg.chat.id,
-        result.ok
-          ? `Дата ${dateUtils.formatDate(dateStr)} разблокирована.`
-          : `Дата ${dateUtils.formatDate(dateStr)} не была заблокирована.`
-      );
-    });
-  });
-
-  bot.onText(/\/blocked/, (msg) => {
-    isAdmin(bot, msg, () => {
-      const dates = orderService.getBlockedDates();
-      if (!dates.length) {
-        bot.sendMessage(msg.chat.id, 'Нет заблокированных дат.');
-        return;
-      }
-      const text = dates.map((d) => `${dateUtils.formatDate(d.date)}${d.reason ? ` — ${d.reason}` : ''}`).join('\n');
-      bot.sendMessage(msg.chat.id, `Заблокированные даты:\n${text}`);
-    });
-  });
-
-  bot.onText(/\/setadmin (\d+)/, (msg, match) => {
-    if (!config.adminTelegramId || String(msg.from.id) !== config.adminTelegramId) {
-      bot.sendMessage(msg.chat.id, 'Только первый админ может назначать других админов.');
+  if (state.action === 'search_name') {
+    resetAdminState(userId);
+    if (!text) {
+      await bot.sendMessage(chatId, 'Имя не может быть пустым.', keyboards.mainMenuKeyboard(true));
       return;
     }
-    const telegramId = match[1];
-    orderService.setAdmin(telegramId);
-    bot.sendMessage(msg.chat.id, `Администратор ${telegramId} добавлен.`);
-  });
+    const orders = orderService.searchOrdersByClientName(text, 50);
+    if (!orders.length) {
+      await bot.sendMessage(chatId, `Не нашла заказов по имени «${text}».`, keyboards.mainMenuKeyboard(true));
+      return;
+    }
+    const textOut = orders.map(formatOrderFull).join('\n\n────────────\n\n');
+    await bot.sendMessage(chatId, textOut, keyboards.mainMenuKeyboard(true));
+    return;
+  }
+
+  if (state.action === 'search_phone') {
+    resetAdminState(userId);
+    if (!text) {
+      await bot.sendMessage(chatId, 'Номер телефона не может быть пустым.', keyboards.mainMenuKeyboard(true));
+      return;
+    }
+    const orders = orderService.searchOrdersByPhone(text, 50);
+    if (!orders.length) {
+      await bot.sendMessage(chatId, `Не нашла заказов по номеру «${text}».`, keyboards.mainMenuKeyboard(true));
+      return;
+    }
+    const textOut = orders.map(formatOrderFull).join('\n\n────────────\n\n');
+    await bot.sendMessage(chatId, textOut, keyboards.mainMenuKeyboard(true));
+    return;
+  }
+
+  if (state.action === 'delete_order') {
+    const orderId = parseInt(text, 10);
+    if (!orderId || orderId <= 0) {
+      await bot.sendMessage(chatId, 'Введите, пожалуйста, корректный номер заказа.', keyboards.mainMenuKeyboard(true));
+      return;
+    }
+    const order = orderService.getOrderById(orderId);
+    if (!order) {
+      resetAdminState(userId);
+      await bot.sendMessage(chatId, `Заказ #${orderId} не найден.`, keyboards.mainMenuKeyboard(true));
+      return;
+    }
+    orderService.deleteOrder(orderId);
+    resetAdminState(userId);
+    await bot.sendMessage(chatId, `Заказ #${orderId} удалён из активного списка.`, keyboards.mainMenuKeyboard(true));
+    return;
+  }
+
+  if (state.action === 'reschedule_order_number') {
+    const orderId = parseInt(text, 10);
+    if (!orderId || orderId <= 0) {
+      await bot.sendMessage(chatId, 'Введите, пожалуйста, корректный номер заказа.', keyboards.mainMenuKeyboard(true));
+      return;
+    }
+    const order = orderService.getOrderById(orderId);
+    if (!order) {
+      resetAdminState(userId);
+      await bot.sendMessage(chatId, `Заказ #${orderId} не найден.`, keyboards.mainMenuKeyboard(true));
+      return;
+    }
+    setAdminState(userId, { action: 'reschedule_order_date', orderId });
+    await bot.sendMessage(
+      chatId,
+      `Заказ #${orderId} — ${order.product_name || '—'} на ${orderService.formatDate(order.delivery_date)} ${order.delivery_time || ''}.\n\nВведите новую дату в формате ГГГГ-ММ-ДД:`,
+      keyboards.mainMenuKeyboard(true)
+    );
+    return;
+  }
+
+  if (state.action === 'reschedule_order_date') {
+    const newDate = text;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
+      await bot.sendMessage(chatId, 'Дата должна быть в формате ГГГГ-ММ-ДД. Попробуйте ещё раз:', keyboards.mainMenuKeyboard(true));
+      return;
+    }
+    const result = orderService.rescheduleOrder(state.orderId, newDate);
+    resetAdminState(userId);
+    if (!result.ok) {
+      if (result.error === 'not_found') {
+        await bot.sendMessage(chatId, 'Заказ не найден.', keyboards.mainMenuKeyboard(true));
+      } else if (result.error === 'cancelled') {
+        await bot.sendMessage(chatId, 'Этот заказ отменён, переносить нельзя.', keyboards.mainMenuKeyboard(true));
+      } else if (result.error === 'date_unavailable') {
+        const alternatives = result.alternatives.map(orderService.formatDate).join(', ');
+        await bot.sendMessage(chatId, `Эта дата недоступна.\nБлижайшие свободные даты: ${alternatives || 'нет'}`, keyboards.mainMenuKeyboard(true));
+      } else {
+        await bot.sendMessage(chatId, 'Не удалось перенести заказ.', keyboards.mainMenuKeyboard(true));
+      }
+      return;
+    }
+    await bot.sendMessage(chatId, `Заказ #${result.orderId} перенесён на ${orderService.formatDate(newDate)}.`, keyboards.mainMenuKeyboard(true));
+  }
 }
 
-function notifyClient(bot, orderId, text) {
-  const order = orderService.getOrderById(orderId);
-  if (!order) return;
-  bot.sendMessage(order.client_id, text).catch((err) => {
-    console.error('Не удалось уведомить клиента:', err.message);
-  });
-}
-
-module.exports = { register };
+module.exports = {
+  showAdminPanel,
+  showOrdersList,
+  askSearchByName,
+  askSearchByPhone,
+  askDeleteOrder,
+  askRescheduleOrder,
+  handleAdminMessage,
+  getAdminState,
+  resetAdminState,
+};
