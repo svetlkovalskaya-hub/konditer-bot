@@ -22,7 +22,11 @@ function formatOrderShort(order) {
   const client = order.client_name || order.client_username || `id${order.client_id}`;
   const phone = order.phone || '—';
   const status = order.status || '—';
-  return `${date} ${time}\n${product}\n${client}\n${phone}\nЗаказ #${order.id}\n${status}`;
+  return `🎂 ${date} ${time}\n${product}\n${client}\n${phone}\nЗаказ #${order.id}\n${status}`;
+}
+
+function formatOrderSeparator(order) {
+  return `🍰 Заказ #${order.id}`;
 }
 
 function formatOrderFull(order) {
@@ -56,9 +60,8 @@ async function showOrdersList(bot, chatId) {
     await bot.sendMessage(chatId, 'Заказов пока нет.', keyboards.mainMenuKeyboard(true));
     return;
   }
-  for (let i = 0; i < orders.length; i += 5) {
-    const chunk = orders.slice(i, i + 5);
-    const text = chunk.map(formatOrderShort).join('\n\n');
+  for (const order of orders) {
+    const text = formatOrderShort(order);
     await bot.sendMessage(chatId, text, keyboards.mainMenuKeyboard(true));
   }
 }
