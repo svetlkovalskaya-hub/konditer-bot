@@ -10,19 +10,21 @@ function isDateBlocked(dateStr) {
   return !!row;
 }
 
-function hasOrderOnDate(dateStr, excludeOrderId = null) {
-  let sql = 'SELECT id FROM orders WHERE delivery_date = ? AND status != ?';
+const MAX_ORDERS_PER_DATE = 5;
+
+function countOrdersOnDate(dateStr, excludeOrderId = null) {
+  let sql = 'SELECT COUNT(*) as count FROM orders WHERE delivery_date = ? AND status != ?';
   const params = [dateStr, 'cancelled'];
   if (excludeOrderId) {
     sql += ' AND id != ?';
     params.push(excludeOrderId);
   }
   const row = db.prepare(sql).get(...params);
-  return !!row;
+  return row ? row.count : 0;
 }
 
 function isDateAvailable(dateStr, excludeOrderId = null) {
-  return !isDateBlocked(dateStr) && !hasOrderOnDate(dateStr, excludeOrderId);
+  return !isDateBlocked(dateStr) && countOrdersOnDate(dateStr, excludeOrderId) < MAX_ORDERS_PER_DATE;
 }
 
 function getAvailableDates(fromDateStr, limit = 10) {
