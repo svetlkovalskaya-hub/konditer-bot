@@ -71,6 +71,7 @@ function register(bot) {
         `Статус: ${order.status}`,
         `Изделие: ${order.product_name || '—'}`,
         `Клиент: ${order.client_name || '—'} @${order.client_username || '—'} ID: ${order.client_id}`,
+        `Телефон: ${order.phone || '—'}`,
         `Дата: ${dateUtils.formatDate(order.delivery_date)} ${order.delivery_time || ''}`,
         `Адрес: ${order.is_pickup ? 'Самовывоз' : order.address}`,
         `Комментарий: ${order.comment || '—'}`,

@@ -30,6 +30,7 @@ db.exec(`
     delivery_time TEXT,
     address TEXT,
     is_pickup INTEGER DEFAULT 0,
+    phone TEXT,
     comment TEXT,
     status TEXT DEFAULT 'pending',
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,

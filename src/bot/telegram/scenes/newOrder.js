@@ -29,14 +29,12 @@ function resetSession(userId) {
 function startNewOrder(bot, msg) {
   const userId = msg.from.id;
   const session = getSession(userId);
-  session.step = 'product';
+  session.step = 'name';
   session.clientId = String(userId);
-  session.clientName = msg.from.first_name || '';
   session.clientUsername = msg.from.username || '';
   session.photos = [];
 
-  const products = orderService.getProducts();
-  bot.sendMessage(msg.chat.id, 'Что хотите заказать? Выберите изделие:', keyboards.productKeyboard(products));
+  bot.sendMessage(msg.chat.id, 'Как к вам обращаться? Напишите ваше имя.');
 }
 
 function canReschedule(order) {
@@ -201,6 +199,23 @@ function handleMessage(bot, msg) {
 
   if (msg.text && msg.text.startsWith('/')) return;
 
+  if (session.step === 'name') {
+    if (!msg.text) return;
+    session.clientName = msg.text.trim();
+    session.step = 'phone';
+    bot.sendMessage(chatId, 'Напишите ваш контактный телефон, чтобы мы могли связаться по заказу.');
+    return;
+  }
+
+  if (session.step === 'phone') {
+    if (!msg.text) return;
+    session.phone = msg.text.trim();
+    session.step = 'product';
+    const products = orderService.getProducts();
+    bot.sendMessage(chatId, `Спасибо, ${session.clientName}! Что хотите заказать? Выберите изделие:`, keyboards.productKeyboard(products));
+    return;
+  }
+
   if (session.step === 'time_custom') {
     if (!msg.text) return;
     const time = msg.text.trim();
@@ -259,6 +274,7 @@ async function createOrderFromSession(bot, chatId, session, userId) {
     client_id: session.clientId,
     client_name: session.clientName,
     client_username: session.clientUsername,
+    phone: session.phone,
     product_id: session.productId,
     product_name: session.productName,
     delivery_date: session.deliveryDate,
@@ -311,6 +327,8 @@ async function createOrderFromSession(bot, chatId, session, userId) {
 function sendPreview(bot, chatId, session) {
   const text = [
     'Проверьте заказ:',
+    `Имя: ${session.clientName}`,
+    `Телефон: ${session.phone}`,
     `Изделие: ${session.productName}`,
     `Дата: ${dateUtils.formatDate(session.deliveryDate)}`,
     `Время: ${session.deliveryTime}`,
@@ -331,6 +349,7 @@ function notifyAdmin(bot, orderId) {
     `🍰 Новый заказ #${orderId}`,
     `Изделие: ${order.product_name || '—'}`,
     `Клиент: ${order.client_name || '—'} @${order.client_username || '—'}`,
+    `Телефон: ${order.phone || '—'}`,
     `Дата: ${dateUtils.formatDate(order.delivery_date)} ${order.delivery_time || ''}`,
     `Адрес: ${order.is_pickup ? 'Самовывоз' : order.address}`,
     `Комментарий: ${order.comment || '—'}`,

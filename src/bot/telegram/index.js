@@ -62,16 +62,11 @@ function init() {
   function sendMainMenu(chatId, userId) {
     const isAdmin = orderService.isAdmin(userId);
     const text = isAdmin
-      ? 'Привет! Это панель кондитера.\nКоманды: /orders, /order N, /confirm N, /cancel N, /reschedule N YYYY-MM-DD, /addproduct, /products, /blockdate, /unblockdate, /blocked'
+      ? 'Привет! Это панель кондитера. Выберите действие внизу экрана или используйте команды: /orders, /order N, /confirm N, /cancel N, /reschedule N YYYY-MM-DD, /addproduct, /products, /blockdate, /unblockdate, /blocked'
       : 'Привет! Я — помощник кондитера. Помогу вам забронировать тортик или другое кондитерское изделие на подходящую дату. Нажмите на кнопку внизу экрана.';
 
-    if (isAdmin) {
-      bot.sendMessage(chatId, text);
-      return;
-    }
-
     newOrder.resetSession(userId);
-    bot.sendMessage(chatId, text, keyboards.mainMenuKeyboard());
+    bot.sendMessage(chatId, text, keyboards.mainMenuKeyboard(isAdmin));
   }
 
   bot.on('callback_query', (query) => {
@@ -105,6 +100,16 @@ function init() {
       return;
     }
 
+    if (text === '📋 Список заказов') {
+      showAdminOrders(msg);
+      return;
+    }
+
+    if (text === '🔍 Поиск по имени') {
+      startSearchByName(bot, msg);
+      return;
+    }
+
     const session = newOrder.getSession(userId);
     if (session.step === 'idle') {
       sendMainMenu(chatId, userId);
@@ -113,6 +118,55 @@ function init() {
 
     newOrder.handleMessage(bot, msg);
   });
+
+  function showAdminOrders(msg) {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
+    if (!orderService.isAdmin(userId)) {
+      bot.sendMessage(chatId, 'Эта функция только для администратора.', keyboards.mainMenuKeyboard());
+      return;
+    }
+    const orders = orderService.getOrders(null, 50);
+    if (!orders.length) {
+      bot.sendMessage(chatId, 'Нет заказов.', keyboards.mainMenuKeyboard(true));
+      return;
+    }
+    const text = orders
+      .map((o) => `#${o.id} ${dateUtils.formatDate(o.delivery_date)} ${o.delivery_time || ''} — ${o.product_name || '—'} — ${o.client_name || '—'} (${o.status})`)
+      .join('\n');
+    bot.sendMessage(chatId, `Заказы по датам:\n${text}\n\nДля деталей: /order N`, keyboards.mainMenuKeyboard(true));
+  }
+
+  function startSearchByName(bot, msg) {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
+    if (!orderService.isAdmin(userId)) {
+      bot.sendMessage(chatId, 'Эта функция только для администратора.', keyboards.mainMenuKeyboard());
+      return;
+    }
+    bot.sendMessage(chatId, 'Напишите имя заказчика или часть имени для поиска.');
+
+    const handler = (reply) => {
+      if (reply.from.id !== userId || !reply.text || reply.text.startsWith('/')) return;
+      bot.removeListener('message', handler);
+      const name = reply.text.trim();
+      if (!name) {
+        bot.sendMessage(chatId, 'Имя не может быть пустым.', keyboards.mainMenuKeyboard(true));
+        return;
+      }
+      const orders = orderService.searchOrdersByClientName(name, 50);
+      if (!orders.length) {
+        bot.sendMessage(chatId, `Заказов по имени «${name}» не найдено.`, keyboards.mainMenuKeyboard(true));
+        return;
+      }
+      const text = orders
+        .map((o) => `#${o.id} ${dateUtils.formatDate(o.delivery_date)} ${o.delivery_time || ''} — ${o.product_name || '—'} — ${o.client_name || '—'} (${o.status})`)
+        .join('\n');
+      bot.sendMessage(chatId, `Найдено заказов по «${name}»:\n${text}\n\nДля деталей: /order N`, keyboards.mainMenuKeyboard(true));
+    };
+
+    bot.on('message', handler);
+  }
 
   function startReschedule(bot, msg) {
     const userId = msg.from.id;

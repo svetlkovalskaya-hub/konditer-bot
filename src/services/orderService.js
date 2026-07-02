@@ -56,8 +56,8 @@ function createOrder(order) {
   const stmt = db.prepare(`
     INSERT INTO orders (
       client_id, client_name, client_username, product_id, product_name,
-      delivery_date, delivery_time, address, is_pickup, comment, status
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      delivery_date, delivery_time, address, is_pickup, phone, comment, status
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const info = stmt.run(
@@ -70,6 +70,7 @@ function createOrder(order) {
     order.delivery_time || null,
     order.address || null,
     order.is_pickup ? 1 : 0,
+    order.phone || null,
     order.comment || null,
     order.status || 'создан'
   );
@@ -101,9 +102,14 @@ function getOrders(status = null, limit = 50) {
     sql += ' WHERE status = ?';
     params.push(status);
   }
-  sql += ' ORDER BY delivery_date DESC, created_at DESC LIMIT ?';
+  sql += ' ORDER BY delivery_date ASC, delivery_time ASC LIMIT ?';
   params.push(limit);
   return db.prepare(sql).all(...params);
+}
+
+function searchOrdersByClientName(name, limit = 50) {
+  const sql = 'SELECT * FROM orders WHERE client_name LIKE ? AND status != ? ORDER BY delivery_date ASC, delivery_time ASC LIMIT ?';
+  return db.prepare(sql).all(`%${name}%`, 'cancelled', limit);
 }
 
 function updateOrderStatus(orderId, status) {
@@ -182,6 +188,7 @@ module.exports = {
   getOrderPhotos,
   getOrderById,
   getOrders,
+  searchOrdersByClientName,
   updateOrderStatus,
   rescheduleOrder,
   blockDate,

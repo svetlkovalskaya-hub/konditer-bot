@@ -86,7 +86,18 @@ function yesNoKeyboard(prefix) {
   };
 }
 
-function mainMenuKeyboard() {
+function mainMenuKeyboard(isAdmin = false) {
+  if (isAdmin) {
+    return {
+      reply_markup: {
+        keyboard: [
+          [{ text: '📋 Список заказов' }, { text: '🔍 Поиск по имени' }],
+        ],
+        resize_keyboard: true,
+        one_time_keyboard: false,
+      },
+    };
+  }
   return {
     reply_markup: {
       keyboard: [
