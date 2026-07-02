@@ -209,7 +209,7 @@ async function createOrderFromSession(bot, chatId, session, userId) {
     address: session.address,
     is_pickup: session.isPickup,
     comment: session.comment,
-    status: 'pending',
+    status: 'создан',
   });
 
   if (!result.ok) {
