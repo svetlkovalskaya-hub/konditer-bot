@@ -15,6 +15,14 @@ function init() {
 
   bot = new TelegramBot(config.telegramToken, { polling: true });
 
+  bot.on('polling_error', (err) => {
+    console.error('[polling_error]', err.message || err);
+  });
+
+  bot.on('error', (err) => {
+    console.error('[bot_error]', err.message || err);
+  });
+
   bot.deleteWebhook().catch((err) => {
     console.error('Не удалось удалить webhook:', err.message);
   });
