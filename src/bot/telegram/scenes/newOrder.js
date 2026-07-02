@@ -23,7 +23,7 @@ function getSession(userId) {
 }
 
 function resetSession(userId) {
-  sessions.set(userId, { step: 'idle', photos: [] });
+  sessions.set(userId, { step: 'idle', photos: [], clientId: String(userId) });
 }
 
 function startNewOrder(bot, msg) {
