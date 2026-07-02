@@ -69,7 +69,7 @@ function createOrder(order) {
     order.address || null,
     order.is_pickup ? 1 : 0,
     order.comment || null,
-    order.status || 'pending'
+    order.status || 'создан'
   );
 
   return {
