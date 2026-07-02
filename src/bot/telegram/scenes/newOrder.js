@@ -289,4 +289,5 @@ module.exports = {
   handleCallback,
   handleMessage,
   resetSession,
+  getSession,
 };

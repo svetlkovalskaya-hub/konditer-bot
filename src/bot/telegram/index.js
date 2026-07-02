@@ -2,6 +2,7 @@ const { TelegramBot } = require('node-telegram-bot-api');
 const config = require('../../config');
 const orderService = require('../../services/orderService');
 const dateUtils = require('../../utils/date');
+const keyboards = require('../../utils/keyboard');
 const newOrder = require('./scenes/newOrder');
 const admin = require('./admin');
 
@@ -31,27 +32,38 @@ function init() {
     orderService.setAdmin(config.adminTelegramId, 'Главный админ');
   }
 
+  bot.setMyCommands([
+    { command: 'start', description: 'Начать запись' },
+    { command: 'myorders', description: 'Мои заказы' },
+  ]);
+
   bot.onText(/\/start/, (msg) => {
     sendMainMenu(msg.chat.id, msg.from.id);
   });
 
-  bot.onText(/\/myorders/, (msg) => {
-    const orders = orderService.getOrders(null, 50).filter((o) => String(o.client_id) === String(msg.from.id));
+  function showMyOrders(msg) {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
+    const orders = orderService.getOrders(null, 50).filter((o) => String(o.client_id) === String(userId));
     if (!orders.length) {
-      bot.sendMessage(msg.chat.id, 'У вас пока нет заказов.');
+      bot.sendMessage(chatId, 'У вас пока нет заказов.', keyboards.mainMenuKeyboard());
       return;
     }
     const text = orders
       .map((o) => `#${o.id} ${dateUtils.formatDate(o.delivery_date)} ${o.delivery_time || ''} — ${o.product_name || '—'} (${o.status})`)
       .join('\n');
-    bot.sendMessage(msg.chat.id, `Ваши заказы:\n${text}\n\nЧтобы записаться снова, нажмите /start.`);
+    bot.sendMessage(chatId, `Ваши заказы:\n${text}\n\nЧтобы записаться снова, нажмите "📝 Записаться".`, keyboards.mainMenuKeyboard());
+  }
+
+  bot.onText(/\/myorders/, (msg) => {
+    showMyOrders(msg);
   });
 
   function sendMainMenu(chatId, userId) {
     const isAdmin = orderService.isAdmin(userId);
     const text = isAdmin
       ? 'Привет! Это панель кондитера.\nКоманды: /orders, /order N, /confirm N, /cancel N, /reschedule N YYYY-MM-DD, /addproduct, /products, /blockdate, /unblockdate, /blocked'
-      : 'Привет! Я помогу записаться на изделие ручной работы. Нажмите "Записаться" ниже.';
+      : 'Привет! Я помогу записаться на изделие ручной работы. Выберите действие внизу экрана.';
 
     if (isAdmin) {
       bot.sendMessage(chatId, text);
@@ -59,11 +71,7 @@ function init() {
     }
 
     newOrder.resetSession(userId);
-    bot.sendMessage(chatId, text, {
-      reply_markup: {
-        inline_keyboard: [[{ text: 'Записаться', callback_data: 'start_order' }]],
-      },
-    });
+    bot.sendMessage(chatId, text, keyboards.mainMenuKeyboard());
   }
 
   bot.on('callback_query', (query) => {
@@ -75,7 +83,29 @@ function init() {
   });
 
   bot.on('message', (msg) => {
-    if (msg.text && msg.text.startsWith('/')) return;
+    if (!msg.text || msg.text.startsWith('/')) return;
+
+    const userId = msg.from.id;
+    const chatId = msg.chat.id;
+    const text = msg.text.trim();
+
+    if (text === '📝 Записаться') {
+      newOrder.resetSession(userId);
+      newOrder.startNewOrder(bot, msg);
+      return;
+    }
+
+    if (text === '📋 Мои заказы') {
+      showMyOrders(msg);
+      return;
+    }
+
+    const session = newOrder.getSession(userId);
+    if (session.step === 'idle') {
+      sendMainMenu(chatId, userId);
+      return;
+    }
+
     newOrder.handleMessage(bot, msg);
   });
 

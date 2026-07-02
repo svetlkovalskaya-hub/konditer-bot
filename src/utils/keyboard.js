@@ -86,10 +86,32 @@ function yesNoKeyboard(prefix) {
   };
 }
 
+function mainMenuKeyboard() {
+  return {
+    reply_markup: {
+      keyboard: [
+        [{ text: '📝 Записаться' }, { text: '📋 Мои заказы' }],
+      ],
+      resize_keyboard: true,
+      one_time_keyboard: false,
+    },
+  };
+}
+
+function removeKeyboard() {
+  return {
+    reply_markup: {
+      remove_keyboard: true,
+    },
+  };
+}
+
 module.exports = {
   productKeyboard,
   calendarKeyboard,
   timeKeyboard,
   deliveryTypeKeyboard,
   yesNoKeyboard,
+  mainMenuKeyboard,
+  removeKeyboard,
 };
