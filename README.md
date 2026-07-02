@@ -81,24 +81,68 @@
    npm start
    ```
 
+## Деплой на VPS (Beget и аналоги)
+
+1. Купи VPS с Ubuntu 22.04 или 24.04.
+2. Подключись по SSH:
+   ```
+   ssh root@IP_АДРЕС_СЕРВЕРА
+   ```
+3. Установи Node.js, npm, git:
+   ```
+   apt update && apt install -y nodejs npm git
+   ```
+4. Склонируй репозиторий:
+   ```
+   cd /opt
+   git clone https://github.com/svetlkovalskaya-hub/konditer-bot.git
+   cd konditer-bot
+   npm install
+   ```
+5. Создай `.env`:
+   ```
+   nano .env
+   ```
+   Пример содержимого:
+   ```
+   NODE_ENV=production
+   PORT=3000
+   TELEGRAM_BOT_TOKEN=токен_из_@BotFather
+   ADMIN_TELEGRAM_ID=твой_telegram_id
+   ```
+6. Установи PM2 и запусти бота:
+   ```
+   npm install -g pm2
+   pm2 start src/index.js --name konditer-bot
+   pm2 save
+   pm2 startup
+   ```
+   Выполни команду, которую предложит `pm2 startup`.
+
+## Управление ботом на сервере
+
+```bash
+cd /opt/konditer-bot
+
+pm2 status          # статус бота
+pm2 logs            # логи в реальном времени
+pm2 logs --lines 50 # последние 50 строк логов
+pm2 restart all     # перезапустить бота
+pm2 stop all        # остановить бота
+```
+
+## Обновление кода
+
+```bash
+cd /opt/konditer-bot
+git pull
+npm install
+pm2 restart all
+```
+
 ## Деплой на Render
 
-1. Загрузи проект на GitHub.
-2. В Render нажми «New Web Service» и подключи репозиторий.
-3. Укажи:
-   - Build Command: `npm install`
-   - Start Command: `npm start`
-4. Добавь Environment Variables:
-   - `NODE_ENV` = `production`
-   - `TELEGRAM_BOT_TOKEN` = токен бота
-   - `ADMIN_TELEGRAM_ID` = твой Telegram ID
-5. Добавь диск:
-   - Name: `konditer-data`
-   - Mount Path: `/data`
-   - Size: 1 GB
-6. Нажми Deploy.
-
-После деплоя бот сразу начнёт работать.
+Render требует карту для диска и иногда нестабилен с VPN. Если всё же хочешь Render — инструкция в истории коммитов.
 
 ## Безопасность
 
