@@ -63,7 +63,7 @@ function init() {
     const isAdmin = orderService.isAdmin(userId);
     const text = isAdmin
       ? 'Привет! Это панель кондитера.\nКоманды: /orders, /order N, /confirm N, /cancel N, /reschedule N YYYY-MM-DD, /addproduct, /products, /blockdate, /unblockdate, /blocked'
-      : 'Привет! Я помогу записаться на изделие ручной работы. Выберите действие внизу экрана.';
+      : 'Привет! Я — помощник кондитера. Помогу вам забронировать тортик или другое кондитерское изделие на подходящую дату. Нажмите на кнопку внизу экрана.';
 
     if (isAdmin) {
       bot.sendMessage(chatId, text);
@@ -100,6 +100,11 @@ function init() {
       return;
     }
 
+    if (text === '🔄 Перенести запись') {
+      startReschedule(bot, msg);
+      return;
+    }
+
     const session = newOrder.getSession(userId);
     if (session.step === 'idle') {
       sendMainMenu(chatId, userId);
@@ -108,6 +113,20 @@ function init() {
 
     newOrder.handleMessage(bot, msg);
   });
+
+  function startReschedule(bot, msg) {
+    const userId = msg.from.id;
+    const chatId = msg.chat.id;
+    const orders = orderService.getOrders(null, 50).filter((o) => String(o.client_id) === String(userId) && o.status !== 'cancelled');
+    if (!orders.length) {
+      bot.sendMessage(chatId, 'У вас пока нет активных заказов, которые можно перенести.', keyboards.mainMenuKeyboard());
+      return;
+    }
+    const rows = orders.map((o) => [{ text: `#${o.id} ${dateUtils.formatDate(o.delivery_date)} ${o.delivery_time || ''} — ${o.product_name || '—'}`, callback_data: `reschedule_order_${o.id}` }]);
+    bot.sendMessage(chatId, 'Выберите заказ для переноса:', {
+      reply_markup: { inline_keyboard: rows },
+    });
+  }
 
   admin.register(bot);
 

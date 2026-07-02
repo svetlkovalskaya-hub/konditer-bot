@@ -39,6 +39,13 @@ function startNewOrder(bot, msg) {
   bot.sendMessage(msg.chat.id, 'Что хотите заказать? Выберите изделие:', keyboards.productKeyboard(products));
 }
 
+function canReschedule(order) {
+  const deliveryDateTime = new Date(`${order.delivery_date}T${order.delivery_time || '00:00'}:00`);
+  const now = new Date();
+  const diffHours = (deliveryDateTime - now) / (1000 * 60 * 60);
+  return diffHours >= 24;
+}
+
 function handleCallback(bot, query) {
   const userId = query.from.id;
   const chatId = query.message.chat.id;
@@ -134,6 +141,53 @@ function handleCallback(bot, query) {
   if (data === 'photo_done') {
     session.step = 'preview';
     sendPreview(bot, chatId, session);
+    return;
+  }
+
+  if (data.startsWith('reschedule_order_')) {
+    const orderId = Number(data.replace('reschedule_order_', ''));
+    const order = orderService.getOrderById(orderId);
+    if (!order || String(order.client_id) !== String(userId)) {
+      bot.sendMessage(chatId, 'Заказ не найден.');
+      resetSession(userId);
+      return;
+    }
+    if (!canReschedule(order)) {
+      bot.sendMessage(chatId, 'Перенос возможен не позднее чем за сутки до даты и времени выдачи. Сейчас уже поздно перенести этот заказ. Свяжитесь с кондитером напрямую.', keyboards.mainMenuKeyboard());
+      resetSession(userId);
+      return;
+    }
+    session.step = 'reschedule_date';
+    session.rescheduleOrderId = orderId;
+    session.rescheduleOldDate = order.delivery_date;
+    bot.sendMessage(chatId, `Вы переносите заказ #${orderId} с ${dateUtils.formatDate(order.delivery_date)}. Выберите новую дату:`, keyboards.calendarKeyboard(dateUtils.todayStr()));
+    return;
+  }
+
+  if (session.step === 'reschedule_date' && data.startsWith('date_')) {
+    const dateStr = data.replace('date_', '');
+    if (!orderService.isDateAvailable(dateStr, session.rescheduleOrderId)) {
+      bot.sendMessage(chatId, `Дата ${dateUtils.formatDate(dateStr)} занята или недоступна. Выберите другую.`);
+      return;
+    }
+    const result = orderService.rescheduleOrder(session.rescheduleOrderId, dateStr);
+    if (!result.ok) {
+      bot.sendMessage(chatId, 'Не удалось перенести заказ на эту дату. Попробуйте другую.', keyboards.mainMenuKeyboard());
+      resetSession(userId);
+      return;
+    }
+    bot.sendMessage(chatId, `Заказ #${session.rescheduleOrderId} перенесён с ${dateUtils.formatDate(session.rescheduleOldDate)} на ${dateUtils.formatDate(dateStr)}.`, keyboards.mainMenuKeyboard());
+    resetSession(userId);
+    return;
+  }
+
+  if (session.step === 'reschedule_date' && (data.startsWith('cal_next_') || data.startsWith('cal_prev_'))) {
+    const baseDate = data.replace('cal_next_', '').replace('cal_prev_', '');
+    bot.editMessageReplyMarkup(
+      keyboards.calendarKeyboard(baseDate).reply_markup,
+      { chat_id: chatId, message_id: query.message.message_id }
+    );
+    return;
   }
 }
 

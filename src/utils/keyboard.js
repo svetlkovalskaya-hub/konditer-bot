@@ -91,6 +91,7 @@ function mainMenuKeyboard() {
     reply_markup: {
       keyboard: [
         [{ text: '📝 Записаться' }, { text: '📋 Мои заказы' }],
+        [{ text: '🔄 Перенести запись' }],
       ],
       resize_keyboard: true,
       one_time_keyboard: false,
