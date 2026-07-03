@@ -89,6 +89,9 @@ function handleCallback(bot, query) {
     const flavorButtons = Array.isArray(cake.flavors)
       ? cake.flavors.map((f) => [{ text: `☑️ ${f}`, callback_data: `cake_flavor_${f}` }])
       : [];
+    const confirmButton = cake.flavors
+      ? []
+      : [[{ text: '✅ Подтверждаю', callback_data: 'cake_confirm_yes' }]];
 
     const caption = cake.flavors
       ? `Вы выбрали: ${cake.name}. Выберите вкус:`
@@ -97,6 +100,7 @@ function handleCallback(bot, query) {
       reply_markup: {
         inline_keyboard: [
           ...flavorButtons,
+          ...confirmButton,
           [{ text: '← Назад к списку', callback_data: 'cake_confirm_back' }],
         ],
       },
