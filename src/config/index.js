@@ -2,6 +2,8 @@ if (process.env.NODE_ENV !== 'production') {
   require('dotenv').config();
 }
 
+const CAKE_TYPES = require('./cakeTypes');
+
 function getDataDir() {
   if (process.env.RENDER_DISK_MOUNT_PATH) {
     return process.env.RENDER_DISK_MOUNT_PATH;
@@ -17,4 +19,5 @@ module.exports = {
   dataDir: getDataDir(),
   uploadsDir: process.env.RENDER_DISK_MOUNT_PATH ? `${process.env.RENDER_DISK_MOUNT_PATH}/uploads` : './uploads',
   maxPhotosPerOrder: 5,
+  cakeTypes: CAKE_TYPES,
 };

@@ -62,8 +62,86 @@ function handleCallback(bot, query) {
     }
     session.productId = productId;
     session.productName = product.name;
+
+    if (product.name.trim().toLowerCase() === 'торт') {
+      session.step = 'cake_type';
+      bot.sendMessage(chatId, 'Выберите вид торта:', keyboards.cakeTypeKeyboard(config.cakeTypes));
+      return;
+    }
+
     session.step = 'date';
     bot.sendMessage(chatId, `Выбрано: ${product.name}. Теперь выберите дату:`, keyboards.calendarKeyboard(dateUtils.todayStr()));
+    return;
+  }
+
+  if (data.startsWith('cake_')) {
+    const cakeIndex = Number(data.replace('cake_', ''));
+    const cake = config.cakeTypes[cakeIndex];
+    if (!cake) {
+      bot.sendMessage(chatId, 'Торт не найден. Начните заново: /start');
+      return;
+    }
+    session.cakeIndex = cakeIndex;
+    session.cakeName = cake.name;
+    session.productName = cake.name;
+    session.step = 'cake_confirm';
+
+    const flavorButtons = Array.isArray(cake.flavors)
+      ? cake.flavors.map((f) => [{ text: `☑️ ${f}`, callback_data: `cake_flavor_${f}` }])
+      : [];
+
+    const caption = cake.flavors
+      ? `Вы выбрали: ${cake.name}. Выберите вкус:`
+      : `Вы выбрали: ${cake.name}. Подтверждаете?`;
+    const confirmKeyboard = {
+      reply_markup: {
+        inline_keyboard: [
+          ...flavorButtons,
+          [{ text: '← Назад к списку', callback_data: 'cake_confirm_back' }],
+        ],
+      },
+    };
+
+    if (cake.photoFile && fs.existsSync(cake.photoFile)) {
+      bot.sendPhoto(chatId, cake.photoFile, { caption, ...confirmKeyboard });
+    } else {
+      const noPhotoText = cake.photoFile ? '\n\n(Фото этого торта пока не добавлено)' : '';
+      bot.sendMessage(chatId, caption + noPhotoText, confirmKeyboard);
+    }
+    return;
+  }
+
+  if (data.startsWith('cake_flavor_')) {
+    const flavor = data.replace('cake_flavor_', '');
+    session.cakeFlavor = flavor;
+    session.productName = `${session.cakeName} (${flavor})`;
+    session.step = 'cake_confirm_flavor';
+    const caption = `Отлично: ${session.cakeName}, вкус ${flavor}. Подтверждаете?`;
+    const keyboard = {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '✅ Выбрать этот торт', callback_data: 'cake_confirm_yes' }],
+          [{ text: '← Назад', callback_data: `cake_${session.cakeIndex}` }],
+        ],
+      },
+    };
+    bot.sendMessage(chatId, caption, keyboard);
+    return;
+  }
+
+  if (data === 'cake_confirm_yes') {
+    session.step = 'date';
+    const chosenName = session.cakeName || session.productName;
+    const flavorText = session.cakeFlavor ? ` (${session.cakeFlavor})` : '';
+    bot.sendMessage(chatId, `Отличный выбор: ${chosenName}${flavorText}. Теперь выберите дату:`, keyboards.calendarKeyboard(dateUtils.todayStr()));
+    return;
+  }
+
+  if (data === 'cake_confirm_back') {
+    session.cakeIndex = null;
+    session.cakeName = null;
+    session.step = 'cake_type';
+    bot.sendMessage(chatId, 'Выберите вид торта:', keyboards.cakeTypeKeyboard(config.cakeTypes));
     return;
   }
 
@@ -198,6 +276,11 @@ function handleMessage(bot, msg) {
   const session = getSession(userId);
 
   if (msg.text && msg.text.startsWith('/')) return;
+
+  if (session.step === 'cake_type' || session.step === 'cake_confirm' || session.step === 'cake_confirm_flavor') {
+    bot.sendMessage(chatId, 'На этом шаге выбирайте вариант с помощью кнопок под сообщением.');
+    return;
+  }
 
   if (session.step === 'name') {
     if (!msg.text) return;

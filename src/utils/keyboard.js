@@ -11,6 +11,16 @@ function productKeyboard(products) {
   };
 }
 
+function cakeTypeKeyboard(cakeTypes) {
+  return {
+    reply_markup: {
+      inline_keyboard: cakeTypes.map((c, i) => [
+        { text: c.name, callback_data: `cake_${i}` },
+      ]),
+    },
+  };
+}
+
 function calendarKeyboard(baseDateStr) {
   const days = dateUtils.generateCalendarDays(baseDateStr, 21);
   const rows = [];
@@ -123,6 +133,7 @@ function removeKeyboard() {
 
 module.exports = {
   productKeyboard,
+  cakeTypeKeyboard,
   calendarKeyboard,
   timeKeyboard,
   deliveryTypeKeyboard,
