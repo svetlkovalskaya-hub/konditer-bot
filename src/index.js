@@ -6,6 +6,7 @@ const telegramBot = require('./bot/telegram');
 const maxBot = require('./bot/max');
 
 const app = express();
+let telegramBotInstance = null;
 
 app.get('/', (req, res) => {
   res.send('Помощник кондитера работает');
@@ -34,5 +35,5 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-telegramBot.init();
-maxBot.init();
+telegramBotInstance = telegramBot.init();
+maxBot.init(telegramBotInstance);

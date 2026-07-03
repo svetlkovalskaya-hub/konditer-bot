@@ -14,6 +14,7 @@ function getDataDir() {
 module.exports = {
   telegramToken: process.env.TELEGRAM_BOT_TOKEN,
   adminTelegramId: process.env.ADMIN_TELEGRAM_ID ? String(process.env.ADMIN_TELEGRAM_ID) : null,
+  maxBotToken: process.env.MAX_BOT_TOKEN || null,
   port: process.env.PORT || 3000,
   nodeEnv: process.env.NODE_ENV || 'development',
   dataDir: getDataDir(),
