@@ -71,6 +71,13 @@ if (!phoneColumn) {
   console.log('Миграция: добавлена колонка phone в таблицу orders');
 }
 
+// Migration: add source column if it doesn't exist
+const sourceColumn = db.prepare("PRAGMA table_info(orders)").all().find((col) => col.name === 'source');
+if (!sourceColumn) {
+  db.exec("ALTER TABLE orders ADD COLUMN source TEXT DEFAULT 'telegram'");
+  console.log('Миграция: добавлена колонка source в таблицу orders');
+}
+
 function seedProducts() {
   const existing = db.prepare('SELECT COUNT(*) as count FROM products').get();
   if (existing.count > 0) return;

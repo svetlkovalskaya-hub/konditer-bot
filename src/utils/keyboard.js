@@ -12,11 +12,13 @@ function productKeyboard(products) {
 }
 
 function cakeTypeKeyboard(cakeTypes) {
+  const rows = cakeTypes.map((c, i) => [
+    { text: c.name, callback_data: `cake_${i}` },
+  ]);
+  rows.push([{ text: '← Назад к изделиям', callback_data: 'cake_back_to_products' }]);
   return {
     reply_markup: {
-      inline_keyboard: cakeTypes.map((c, i) => [
-        { text: c.name, callback_data: `cake_${i}` },
-      ]),
+      inline_keyboard: rows,
     },
   };
 }
@@ -101,6 +103,7 @@ function mainMenuKeyboard(isAdmin = false) {
     return {
       reply_markup: {
         keyboard: [
+          [{ text: '➕ Записать заказ' }],
           [{ text: '📋 Список заказов' }],
           [{ text: '🔍 Найти по имени' }, { text: '📞 Поиск по телефону' }],
           [{ text: '❌ Удалить заказ' }, { text: '🔄 Перенести запись' }],

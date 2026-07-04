@@ -56,8 +56,8 @@ function createOrder(order) {
   const stmt = db.prepare(`
     INSERT INTO orders (
       client_id, client_name, client_username, product_id, product_name,
-      delivery_date, delivery_time, address, is_pickup, phone, comment, status
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      delivery_date, delivery_time, address, is_pickup, phone, comment, status, source
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const info = stmt.run(
@@ -72,13 +72,20 @@ function createOrder(order) {
     order.is_pickup ? 1 : 0,
     order.phone || null,
     order.comment || null,
-    order.status || 'создан'
+    order.status || 'создан',
+    order.source || 'telegram'
   );
 
   return {
     ok: true,
     orderId: info.lastInsertRowid,
   };
+}
+
+function getOrdersByDate(dateStr) {
+  return db.prepare(
+    'SELECT * FROM orders WHERE delivery_date = ? AND status != ? ORDER BY delivery_time ASC, id ASC'
+  ).all(dateStr, 'cancelled');
 }
 
 function addOrderPhoto(orderId, fileId, localPath) {
@@ -200,6 +207,7 @@ module.exports = {
   getOrderPhotos,
   getOrderById,
   getOrders,
+  getOrdersByDate,
   searchOrdersByClientName,
   searchOrdersByPhone,
   deleteOrder,

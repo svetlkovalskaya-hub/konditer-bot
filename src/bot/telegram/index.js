@@ -92,6 +92,11 @@ function init() {
         admin.showAdminPanel(bot, chatId, userId);
         return;
       }
+      if (text === '➕ Записать заказ') {
+        newOrder.resetSession(userId);
+        newOrder.startNewOrder(bot, msg, { isAdminOrder: true, orderSource: 'admin' });
+        return;
+      }
       if (text === '📋 Список заказов') {
         admin.showOrdersList(bot, chatId);
         return;

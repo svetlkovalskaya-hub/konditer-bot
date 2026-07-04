@@ -26,15 +26,20 @@ function resetSession(userId) {
   sessions.set(userId, { step: 'idle', photos: [], clientId: String(userId) });
 }
 
-function startNewOrder(bot, msg) {
+function startNewOrder(bot, msg, opts = {}) {
   const userId = msg.from.id;
   const session = getSession(userId);
   session.step = 'name';
-  session.clientId = String(userId);
+  session.clientId = opts.isAdminOrder ? `admin_${userId}` : String(userId);
   session.clientUsername = msg.from.username || '';
   session.photos = [];
+  session.isAdminOrder = opts.isAdminOrder || false;
+  session.orderSource = opts.orderSource || 'telegram';
 
-  bot.sendMessage(msg.chat.id, 'Как вас зовут? Напишите имя.');
+  const promptText = session.isAdminOrder
+    ? 'Режим записи заказа от имени клиента. Как зовут клиента? Напишите имя.'
+    : 'Как вас зовут? Напишите имя.';
+  bot.sendMessage(msg.chat.id, promptText);
 }
 
 function canReschedule(order) {
@@ -44,6 +49,12 @@ function canReschedule(order) {
   return diffHours >= 24;
 }
 
+function resolveCakePhotoPath(photoFile) {
+  if (!photoFile) return null;
+  const resolved = path.isAbsolute(photoFile) ? photoFile : path.resolve(process.cwd(), photoFile);
+  return fs.existsSync(resolved) ? resolved : null;
+}
+
 function handleCallback(bot, query) {
   const userId = query.from.id;
   const chatId = query.message.chat.id;
@@ -51,6 +62,16 @@ function handleCallback(bot, query) {
   const session = getSession(userId);
 
   bot.answerCallbackQuery(query.id);
+
+  if (data === 'cake_back_to_products') {
+    session.step = 'product';
+    session.cakeIndex = null;
+    session.cakeName = null;
+    session.cakeFlavor = null;
+    const products = orderService.getProducts();
+    bot.sendMessage(chatId, 'Что хотите заказать? Выберите изделие:', keyboards.productKeyboard(products));
+    return;
+  }
 
   if (data.startsWith('product_')) {
     const productId = Number(data.replace('product_', ''));
@@ -84,7 +105,7 @@ function handleCallback(bot, query) {
       reply_markup: {
         inline_keyboard: [
           [{ text: '✅ Подтверждаю', callback_data: 'cake_confirm_yes' }],
-          [{ text: '← Назад', callback_data: `cake_${session.cakeIndex}` }],
+          [{ text: '← Назад к списку тортов', callback_data: 'cake_confirm_back' }],
         ],
       },
     };
@@ -142,8 +163,9 @@ function handleCallback(bot, query) {
       },
     };
 
-    if (cake.photoFile && fs.existsSync(cake.photoFile)) {
-      bot.sendPhoto(chatId, cake.photoFile, { caption, ...confirmKeyboard });
+    const photoPath = resolveCakePhotoPath(cake.photoFile);
+    if (photoPath) {
+      bot.sendPhoto(chatId, photoPath, { caption, ...confirmKeyboard });
     } else {
       const noPhotoText = cake.photoFile ? '\n\n(Фото этого торта пока не добавлено)' : '';
       bot.sendMessage(chatId, caption + noPhotoText, confirmKeyboard);
@@ -350,7 +372,7 @@ function handleMessage(bot, msg) {
       }
       const largest = msg.photo[msg.photo.length - 1];
       session.photos.push({ fileId: largest.file_id, fileUniqueId: largest.file_unique_id });
-      bot.sendMessage(chatId, `Фото ${session.photos.length}/${config.maxPhotosPerOrder} получено. Можно отправить ещё или нажать "Готово».`);
+      bot.sendMessage(chatId, `Фото ${session.photos.length}/${config.maxPhotosPerOrder} получено. Можно отправить ещё или нажать "Готово".`);
       return;
     }
     bot.sendMessage(chatId, 'На этом этапе нужно отправить фото или нажать "Готово".');
@@ -372,6 +394,7 @@ async function createOrderFromSession(bot, chatId, session, userId) {
     is_pickup: session.isPickup,
     comment: session.comment,
     status: 'создан',
+    source: session.orderSource || 'telegram',
   });
 
   if (!result.ok) {
@@ -394,11 +417,15 @@ async function createOrderFromSession(bot, chatId, session, userId) {
       const localPath = path.join(uploadsDir, localName);
       const stream = bot.getFileStream(photo.fileId);
       const writeStream = fs.createWriteStream(localPath);
-      stream.pipe(writeStream);
-      await new Promise((resolve, reject) => {
+
+      const writeFinished = new Promise((resolve, reject) => {
         writeStream.on('finish', resolve);
         writeStream.on('error', reject);
+        stream.on('error', reject);
       });
+
+      stream.pipe(writeStream);
+      await writeFinished;
       orderService.addOrderPhoto(orderId, photo.fileId, localPath);
     } catch (err) {
       console.error('Ошибка сохранения фото:', err.message);
@@ -434,8 +461,9 @@ function notifyAdmin(bot, orderId) {
   if (!order || !config.adminTelegramId) return;
 
   const photos = orderService.getOrderPhotos(orderId);
+  const sourceLabel = order.source === 'max' ? '(MAX)' : order.source === 'admin' ? '(Админ)' : '(TG)';
   const text = [
-    `🍰 Новый заказ #${orderId}`,
+    `🍰 Новый заказ #${orderId} ${sourceLabel}`,
     `Изделие: ${order.product_name || '—'}`,
     `Клиент: ${order.client_name || '—'} @${order.client_username || '—'}`,
     `Телефон: ${order.phone || '—'}`,

@@ -4,6 +4,7 @@ const fs = require('fs');
 const config = require('./config');
 const telegramBot = require('./bot/telegram');
 const maxBot = require('./bot/max');
+const scheduler = require('./utils/scheduler');
 
 const app = express();
 let telegramBotInstance = null;
@@ -36,4 +37,7 @@ if (!fs.existsSync(uploadsDir)) {
 }
 
 telegramBotInstance = telegramBot.init();
+if (telegramBotInstance) {
+  scheduler.startScheduler(telegramBotInstance);
+}
 maxBot.init(telegramBotInstance);
