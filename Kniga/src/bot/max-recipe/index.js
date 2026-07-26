@@ -14,10 +14,11 @@ const RECIPES_PER_PAGE = 5;
 let bot = null;
 
 function extractUserId(ctx) {
-  // MAX API передаёт отправителя в ctx.message.sender.user_id
-  const fromMessage = ctx.message?.sender?.user_id;
+  // MAX API может передавать ID пользователя по-разному в сообщениях и колбэках
+  const fromMessage = ctx.message?.sender?.user_id || ctx.message?.sender?.id;
   if (fromMessage) return String(fromMessage);
-  if (ctx.user?.user_id) return String(ctx.user.user_id);
+  const fromUser = ctx.user?.user_id || ctx.user?.id;
+  if (fromUser) return String(fromUser);
   if (ctx.chatId) return String(ctx.chatId);
   return null;
 }
@@ -592,6 +593,7 @@ function init() {
 
   bot.on('message_callback', async (ctx) => {
     const userId = extractUserId(ctx);
+    console.log('DEBUG CALLBACK USER ID:', userId, 'sender:', JSON.stringify(ctx.message?.sender), 'user:', JSON.stringify(ctx.user));
     if (!userId) return;
 
     const data = ctx.callback?.payload || '';
