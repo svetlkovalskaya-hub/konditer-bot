@@ -1,7 +1,7 @@
 {
-  "name": "konditer",
+  "name": "kniga-recipe-bot",
   "version": "1.0.0",
-  "description": "Помощник кондитера: бот для записи клиентов",
+  "description": "Персональная книга рецептов в Мессенджере MAX",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
@@ -10,8 +10,8 @@
   },
   "keywords": [
     "bot",
-    "telegram",
-    "konditer"
+    "max",
+    "recipes"
   ],
   "author": "",
   "license": "ISC",
@@ -19,11 +19,7 @@
   "dependencies": {
     "@maxhub/max-bot-api": "^0.2.4",
     "better-sqlite3": "^12.11.1",
-    "cheerio": "^1.2.0",
     "dotenv": "^17.4.2",
-    "express": "^5.2.1",
-    "express-rate-limit": "^8.5.2",
-    "node-cron": "^4.5.0",
-    "node-telegram-bot-api": "^1.1.2"
+    "express": "^5.2.1"
   }
 }
