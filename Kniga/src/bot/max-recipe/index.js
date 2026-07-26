@@ -14,7 +14,12 @@ const RECIPES_PER_PAGE = 5;
 let bot = null;
 
 function extractUserId(ctx) {
-  return ctx.user ? String(ctx.user.id) : ctx.chatId ? String(ctx.chatId) : null;
+  // Сначала пробуем sender из сообщения, затем ctx.user, затем chatId
+  const fromMessage = ctx.message?.sender?.id;
+  if (fromMessage) return String(fromMessage);
+  if (ctx.user) return String(ctx.user.id);
+  if (ctx.chatId) return String(ctx.chatId);
+  return null;
 }
 
 function isUrl(text) {
