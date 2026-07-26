@@ -186,7 +186,10 @@ async function sendRecipeCard(ctx, recipe) {
   }
 
   if (image && chunks.length === 1) {
-    await ctx.reply(chunks[0], { attachments: [image.toJson(), keyboards.recipeCardActions(recipe.id)] });
+    await ctx.reply(chunks[0], {
+      attachments: [image.toJson(), keyboards.recipeCardActions(recipe.id)],
+      format: 'markdown',
+    });
     return;
   }
 
@@ -197,7 +200,7 @@ async function sendRecipeCard(ctx, recipe) {
   for (let i = 0; i < chunks.length; i++) {
     const isLast = i === chunks.length - 1;
     const kb = isLast ? keyboards.recipeCardActions(recipe.id) : null;
-    await ctx.reply(chunks[i], kb ? { attachments: [kb] } : {});
+    await ctx.reply(chunks[i], kb ? { attachments: [kb], format: 'markdown' } : { format: 'markdown' });
   }
 }
 
@@ -214,7 +217,10 @@ async function sendPreview(ctx, draft) {
   const image = draft.image_url ? await uploadImageFromUrl(draft.image_url) : null;
 
   if (image && chunks.length === 1) {
-    await ctx.reply(chunks[0], { attachments: [image.toJson(), keyboards.previewActions()] });
+    await ctx.reply(chunks[0], {
+      attachments: [image.toJson(), keyboards.previewActions()],
+      format: 'markdown',
+    });
     return;
   }
 
@@ -225,7 +231,7 @@ async function sendPreview(ctx, draft) {
   for (let i = 0; i < chunks.length; i++) {
     const isLast = i === chunks.length - 1;
     const kb = isLast ? keyboards.previewActions() : null;
-    await ctx.reply(chunks[i], kb ? { attachments: [kb] } : {});
+    await ctx.reply(chunks[i], kb ? { attachments: [kb], format: 'markdown' } : { format: 'markdown' });
   }
 }
 
