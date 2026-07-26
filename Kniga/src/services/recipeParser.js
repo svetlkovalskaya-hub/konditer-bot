@@ -4,6 +4,40 @@ if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === '0') {
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 }
 
+function detectEncoding(response, htmlBuffer) {
+  // 1. Пробуем из HTTP-заголовка Content-Type
+  const contentType = response.headers.get('content-type') || '';
+  const headerMatch = contentType.match(/charset=([^;]+)/i);
+  if (headerMatch) {
+    return headerMatch[1].trim().replace(/["']/g, '').toLowerCase();
+  }
+
+  // 2. Пробуем из <meta charset> или <meta http-equiv>
+  const metaCharset = htmlBuffer.toString('ascii', 0, Math.min(htmlBuffer.length, 4096));
+  const metaMatch = metaCharset.match(/<meta[^>]+charset=["']?([^"'>\s]+)/i);
+  if (metaMatch) {
+    return metaMatch[1].trim().toLowerCase();
+  }
+
+  const httpEquivMatch = metaCharset.match(/<meta[^>]+http-equiv=["']?content-type["']?[^>]*charset=([^"'>\s]+)/i);
+  if (httpEquivMatch) {
+    return httpEquivMatch[1].trim().toLowerCase();
+  }
+
+  // 3. По умолчанию UTF-8
+  return 'utf-8';
+}
+
+function decodeHtml(response, htmlBuffer) {
+  const encoding = detectEncoding(response, htmlBuffer);
+  try {
+    const decoder = new TextDecoder(encoding, { fatal: false });
+    return decoder.decode(htmlBuffer);
+  } catch {
+    return htmlBuffer.toString('utf-8');
+  }
+}
+
 function stripHtml(value) {
   if (!value || typeof value !== 'string') return '';
   return value
@@ -162,7 +196,8 @@ async function parseRecipe(url) {
     if (!response.ok) {
       throw new Error(`Сайт вернул ошибку ${response.status}`);
     }
-    html = await response.text();
+    const buffer = Buffer.from(await response.arrayBuffer());
+    html = decodeHtml(response, buffer);
   } catch (err) {
     throw new Error(`Не удалось открыть ссылку: ${err.message}`);
   }
