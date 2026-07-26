@@ -68,43 +68,43 @@ async function parseVkPost(url) {
 
   const text = post.text || '';
   if (text) {
-    // Разбиваем текст на строки
     const lines = text.split('\n').map((s) => s.trim()).filter(Boolean);
     result.title = lines[0] || 'Рецепт из VK';
 
-    // Ищем блоки "Ингредиенты" и "Приготовление" по простым маркерам
-    let mode = 'none';
     const ingredients = [];
     const instructions = [];
 
-    for (const line of lines.slice(1)) {
-      const lower = line.toLowerCase();
-      if (/ингредиенты|состав|что понадобится|продукты/i.test(lower)) {
-        mode = 'ingredients';
-        continue;
-      }
-      if (/приготовление|способ приготовления|готовим|пошагово|инструкция/i.test(lower)) {
-        mode = 'instructions';
-        continue;
+    // Ищем ключевые заголовки: "Приготовление" и маркеры ингредиентов
+    const prepIndex = lines.findIndex((line) => /^приготовление/i.test(line));
+    const ingMarkerIndex = lines.findIndex((line) => /^(ингредиенты|состав|продукты|что понадобится)/i.test(line));
+
+    if (prepIndex !== -1) {
+      // Всё между заголовком (или маркером ингредиентов) и "Приготовление" — ингредиенты
+      const ingStart = ingMarkerIndex !== -1 && ingMarkerIndex < prepIndex ? ingMarkerIndex + 1 : 1;
+      for (let i = ingStart; i < prepIndex; i++) {
+        const cleaned = cleanLine(lines[i]);
+        if (cleaned) ingredients.push(cleaned);
       }
 
-      const cleaned = cleanLine(line);
-      if (!cleaned) continue;
-
-      if (mode === 'ingredients') ingredients.push(cleaned);
-      else if (mode === 'instructions') instructions.push(cleaned);
+      // Всё после "Приготовление" — инструкции
+      for (let i = prepIndex + 1; i < lines.length; i++) {
+        const cleaned = cleanLine(lines[i]);
+        if (cleaned) instructions.push(cleaned);
+      }
+    } else if (ingMarkerIndex !== -1) {
+      // Есть маркер ингредиентов, но нет раздела приготовления — собираем всё в ингредиенты
+      for (let i = ingMarkerIndex + 1; i < lines.length; i++) {
+        const cleaned = cleanLine(lines[i]);
+        if (cleaned) ingredients.push(cleaned);
+      }
+    } else {
+      // Ни заголовков ни маркеров — сохраняем весь текст как инструкции
+      result.instructions = lines.slice(1).join('\n') || text;
     }
 
-    // Если не нашли разделы — сохраняем весь текст как инструкции
-    if (!ingredients.length && !instructions.length) {
-      result.instructions = lines.slice(1).join('\n') || text;
-    } else {
-      if (ingredients.length) result.ingredients = ingredients.join('\n');
-      if (instructions.length) result.instructions = instructions.map((s, i) => `${i + 1}. ${s}`).join('\n\n');
-      else if (ingredients.length && lines.length > ingredients.length + 1) {
-        // Если есть ингредиенты, но нет отдельного блока приготовления — остаток текста в инструкции
-        result.instructions = lines.slice(ingredients.length + 1).map((s, i) => `${i + 1}. ${s}`).join('\n\n');
-      }
+    if (ingredients.length) result.ingredients = ingredients.join('\n');
+    if (instructions.length) {
+      result.instructions = instructions.map((s, i) => `${i + 1}. ${s}`).join('\n\n');
     }
   }
 
