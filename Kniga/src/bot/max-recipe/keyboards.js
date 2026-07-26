@@ -12,8 +12,8 @@ function toInline(rows) {
 function mainMenu() {
   return toInline([
     [{ text: '📚 Мои рецепты', callback_data: 'myrecipes' }],
-    [{ text: '➕ Добавить по ссылке', callback_data: 'add_link' }],
-    [{ text: '✍️ Добавить вручную', callback_data: 'add_manual' }],
+    [{ text: '➕ Добавить рецепт по ссылке', callback_data: 'add_link' }],
+    [{ text: '✍️ Добавить рецепт вручную', callback_data: 'add_manual' }],
     [
       { text: '🔍 Поиск', callback_data: 'search' },
       { text: '🛒 Список покупок', callback_data: 'shoplist' },
@@ -83,7 +83,10 @@ function editFieldMenu(recipeId) {
 
 function previewActions() {
   return toInline([
-    [{ text: '💾 Сохранить', callback_data: 'preview_save' }],
+    [
+      { text: '💾 Сохранить', callback_data: 'preview_save' },
+      { text: '✏️ Редактировать', callback_data: 'preview_edit' },
+    ],
     [{ text: '« Отмена', callback_data: 'menu' }],
   ]);
 }

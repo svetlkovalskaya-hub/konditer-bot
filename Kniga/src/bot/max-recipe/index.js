@@ -435,25 +435,36 @@ function init() {
     }
 
     // Редактирование всего рецепта сразу
-    if (s.mode === 'edit_all' && s.recipeId) {
+    if (s.mode === 'edit_all') {
       const parsed = parseFullRecipeEdit(text);
       if (!parsed) {
         await ctx.reply('Не получилось распознать формат. Сохрани названия разделов: Название:, Ингредиенты:, Приготовление:, Порции:.');
         return;
       }
 
-      const result = recipeService.updateRecipe(s.recipeId, userId, parsed);
-      session.resetSession(userId);
-
-      if (!result.ok) {
-        await ctx.reply('Не удалось обновить рецепт. Попробуй ещё раз.', { attachments: [keyboards.mainMenu()] });
+      // Редактируем черновик перед сохранением
+      if (s.draft && !s.recipeId) {
+        Object.assign(s.draft, parsed);
+        s.mode = 'preview';
+        await sendPreview(ctx, s.draft);
         return;
       }
 
-      const recipe = recipeService.getRecipeByIdAndUser(s.recipeId, userId);
-      await ctx.reply('✅ Рецепт обновлён.');
-      if (recipe) await sendRecipeCard(ctx, recipe);
-      else await sendMainMenu(ctx);
+      // Редактируем уже сохранённый рецепт
+      if (s.recipeId) {
+        const result = recipeService.updateRecipe(s.recipeId, userId, parsed);
+        session.resetSession(userId);
+
+        if (!result.ok) {
+          await ctx.reply('Не удалось обновить рецепт. Попробуй ещё раз.', { attachments: [keyboards.mainMenu()] });
+          return;
+        }
+
+        const recipe = recipeService.getRecipeByIdAndUser(s.recipeId, userId);
+        await ctx.reply('✅ Рецепт обновлён.');
+        if (recipe) await sendRecipeCard(ctx, recipe);
+        else await sendMainMenu(ctx);
+      }
       return;
     }
 
@@ -656,6 +667,19 @@ function init() {
 
     if (data === 'preview_save') {
       await saveDraft(ctx, userId);
+      return;
+    }
+
+    if (data === 'preview_edit') {
+      const s = session.getSession(userId);
+      if (!s.draft) {
+        await ctx.reply('Нечего редактировать. Начни сначала.', { attachments: [keyboards.mainMenu()] });
+        return;
+      }
+      session.setMode(userId, 'edit_all', { draft: s.draft });
+      await ctx.reply(
+        `Пришли исправленный рецепт целиком в таком формате:\n\n${formatRecipeForEdit(s.draft)}\n\nНе меняй названия разделов — я по ним разберу текст.`
+      );
       return;
     }
   });
