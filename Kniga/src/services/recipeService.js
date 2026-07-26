@@ -64,6 +64,11 @@ function searchByIngredient(user_id, query, limit = 20) {
     .all(user_id, `%${query}%`, limit);
 }
 
+function findRecipeBySourceUrl(user_id, source_url) {
+  if (!source_url) return null;
+  return db.prepare('SELECT * FROM recipes WHERE user_id = ? AND source_url = ?').get(user_id, source_url);
+}
+
 module.exports = {
   createRecipe,
   getRecipeByIdAndUser,
@@ -73,4 +78,5 @@ module.exports = {
   deleteRecipe,
   searchByTitle,
   searchByIngredient,
+  findRecipeBySourceUrl,
 };

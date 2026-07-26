@@ -363,6 +363,16 @@ function init() {
         const parsed = vkParser.isVkUrl(text)
           ? await vkParser.parseVkPost(text)
           : await recipeParser.parseRecipe(text);
+
+        // Проверяем, не добавляли ли уже этот рецепт по такому же URL
+        const existing = recipeService.findRecipeBySourceUrl(userId, parsed.sourceUrl);
+        if (existing) {
+          await ctx.reply('Этот рецепт уже есть в твоей книге.');
+          await sendRecipeCard(ctx, existing);
+          session.resetSession(userId);
+          return;
+        }
+
         s.draft = {
           title: parsed.title,
           source_url: parsed.sourceUrl,
@@ -539,6 +549,15 @@ function init() {
         const parsed = vkParser.isVkUrl(text)
           ? await vkParser.parseVkPost(text)
           : await recipeParser.parseRecipe(text);
+
+        const existing = recipeService.findRecipeBySourceUrl(userId, parsed.sourceUrl);
+        if (existing) {
+          await ctx.reply('Этот рецепт уже есть в твоей книге.');
+          await sendRecipeCard(ctx, existing);
+          session.resetSession(userId);
+          return;
+        }
+
         const s2 = session.getSession(userId);
         s2.draft = {
           title: parsed.title,
@@ -554,7 +573,6 @@ function init() {
         }
         await sendPreview(ctx, s2.draft);
       } catch (err) {
-        console.error('Ошибка парсинга рецепта:', err.message);
         console.error('Ошибка парсинга рецепта:', err.message);
         await ctx.reply(`Не удалось распарсить ссылку: ${err.message}\n\nПопробуй добавить рецепт вручную.`, {
           attachments: [keyboards.mainMenu()],
