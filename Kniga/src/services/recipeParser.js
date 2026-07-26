@@ -132,6 +132,21 @@ function normalizeInstructions(recipe) {
   return steps.map((s, i) => `${i + 1}. ${stripHtml(s)}`).join('\n');
 }
 
+function extractHtmlIngredients($) {
+  // Сначала ищем [itemprop="recipeIngredient"] — там часто полный текст с количеством
+  const items = [];
+  $('[itemprop="recipeIngredient"]').each((_, el) => {
+    const text = $(el).text().trim();
+    if (text) items.push(text);
+  });
+
+  if (items.length) {
+    return items.map((s) => stripHtml(s)).filter(Boolean).join('\n');
+  }
+
+  return null;
+}
+
 function normalizeIngredients(recipe) {
   const raw = recipe.recipeIngredient;
   if (!raw) return null;
@@ -225,7 +240,7 @@ async function parseRecipe(url) {
 
   if (recipe) {
     result.title = stripHtml(recipe.name) || ogTitle || h1 || null;
-    result.ingredients = normalizeIngredients(recipe);
+    result.ingredients = extractHtmlIngredients($) || normalizeIngredients(recipe);
     result.instructions = normalizeInstructions(recipe);
     result.imageUrl = toAbsoluteUrl(recipe.image, url) || toAbsoluteUrl(ogImage, url);
     result.portions = recipe.recipeYield ? String(recipe.recipeYield) : null;
