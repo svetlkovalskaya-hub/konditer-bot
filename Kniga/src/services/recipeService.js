@@ -64,9 +64,21 @@ function searchByIngredient(user_id, query, limit = 20) {
     .all(user_id, `%${query}%`, limit);
 }
 
+function normalizeSourceUrl(source_url) {
+  if (!source_url) return '';
+  try {
+    const url = new URL(source_url);
+    return `${url.protocol}//${url.host}${url.pathname}`.toLowerCase();
+  } catch {
+    return source_url.toLowerCase();
+  }
+}
+
 function findRecipeBySourceUrl(user_id, source_url) {
   if (!source_url) return null;
-  return db.prepare('SELECT * FROM recipes WHERE user_id = ? AND source_url = ?').get(user_id, source_url);
+  const normalized = normalizeSourceUrl(source_url);
+  const recipes = db.prepare('SELECT * FROM recipes WHERE user_id = ?').all(user_id);
+  return recipes.find((r) => normalizeSourceUrl(r.source_url) === normalized) || null;
 }
 
 module.exports = {
