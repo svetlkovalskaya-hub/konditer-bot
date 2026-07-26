@@ -24,6 +24,26 @@ function cleanRecipeTitle(value) {
     .trim();
 }
 
+function findDishTitleInLines(lines) {
+  // Ищем короткую строку без цифр, без вопросов, без ссылок — похоже на название блюда
+  for (const line of lines.slice(1)) {
+    const cleaned = cleanLine(line);
+    if (!cleaned) continue;
+    if (/\?|http|www|\.ru|\.com|подписк|канал|групп|автор|репост/i.test(cleaned)) continue;
+    if (/^\d/.test(cleaned)) continue;
+    if (cleaned.length < 80 && cleaned.length > 3) {
+      return cleaned;
+    }
+  }
+  return null;
+}
+
+const INGREDIENT_UNITS = /(\d+[,.]?\d*)\s*(г|кг|мл|л|ст\s*л|ст\.\s*л|ч\s*л|ч\.\s*л|щепотка|капля|шт|штук|пучок|головк|зубчик|стакан|ложек|ложки|ложка|грамм|миллилитр|литр|по\s*вкусу|щепот|долька|кусочек|пакетик|банк|бухан|батон|лист|листов|стебел|веточек|ветка|горсть|звездоч|горошин|кружок|стакана|яйц|яйца|яйцо)/i;
+
+function looksLikeIngredient(line) {
+  return INGREDIENT_UNITS.test(line);
+}
+
 function parseVkWallUrl(url) {
   const match = url.match(/vk\.(ru|com)\/wall(-?\d+)_(\d+)/i);
   if (!match) return null;
@@ -91,7 +111,14 @@ async function parseVkPost(url) {
 
   if (text) {
     const lines = text.split('\n').map((s) => s.trim()).filter(Boolean);
-    result.title = cleanRecipeTitle(lines[0]) || 'Рецепт из VK';
+
+    // Для клипов VK первая строка часто — вопрос/подводка, а не название блюда.
+    // Ищем название блюда среди строк, а если не нашли — берём первую строку.
+    if (result.isDraft) {
+      result.title = cleanRecipeTitle(findDishTitleInLines(lines)) || cleanRecipeTitle(lines[0]) || 'Рецепт из VK';
+    } else {
+      result.title = cleanRecipeTitle(lines[0]) || 'Рецепт из VK';
+    }
 
     const ingredients = [];
     const instructions = [];
@@ -120,8 +147,34 @@ async function parseVkPost(url) {
         if (cleaned) ingredients.push(cleaned);
       }
     } else {
-      // Ни заголовков ни маркеров — сохраняем весь текст как инструкции
-      result.instructions = lines.slice(1).join('\n') || text;
+      // Ни заголовков ни маркеров — пробуем угадать по формату:
+      // строки с количеством и единицей измерения считаем ингредиентами,
+      // остальное — инструкции.
+      const body = lines.slice(1);
+      const titleLine = result.isDraft ? cleanRecipeTitle(findDishTitleInLines(body) || lines[0]) : null;
+
+      let titleFoundIndex = -1;
+      if (titleLine) {
+        titleFoundIndex = body.findIndex((line) => cleanLine(line) === titleLine);
+      }
+
+      const startFrom = titleFoundIndex !== -1 ? titleFoundIndex + 1 : 0;
+      const candidateBody = body.slice(startFrom);
+
+      for (const line of candidateBody) {
+        const cleaned = cleanLine(line);
+        if (!cleaned) continue;
+        if (result.isDraft && cleaned === titleLine) continue;
+        if (looksLikeIngredient(cleaned)) {
+          ingredients.push(cleaned);
+        } else {
+          instructions.push(cleaned);
+        }
+      }
+
+      if (!ingredients.length && !instructions.length) {
+        result.instructions = lines.slice(1).join('\n') || text;
+      }
     }
 
     if (ingredients.length) result.ingredients = ingredients.join('\n');
