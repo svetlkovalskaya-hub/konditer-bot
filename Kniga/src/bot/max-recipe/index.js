@@ -563,8 +563,9 @@ function init() {
       }
       session.setMode(userId, 'edit_all', { recipeId: id });
       await ctx.reply(
-        `Пришли исправленный рецепт целиком в таком формате:\n\n${formatRecipeForEdit(recipe)}\n\nНе меняй названия разделов — я по ним разберу текст.`
+        `Отредактируй рецепт ниже и пришли обратно. Не меняй названия разделов — я по ним разберу текст.`,
       );
+      await ctx.reply(formatRecipeForEdit(recipe));
       return;
     }
 
@@ -683,8 +684,9 @@ function init() {
       }
       session.setMode(userId, 'edit_all', { draft: s.draft });
       await ctx.reply(
-        `Пришли исправленный рецепт целиком в таком формате:\n\n${formatRecipeForEdit(s.draft)}\n\nНе меняй названия разделов — я по ним разберу текст.`
+        `Отредактируй рецепт ниже и пришли обратно. Не меняй названия разделов — я по ним разберу текст.`,
       );
+      await ctx.reply(formatRecipeForEdit(s.draft));
       return;
     }
   });
