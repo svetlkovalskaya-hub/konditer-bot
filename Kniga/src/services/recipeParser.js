@@ -129,7 +129,7 @@ function flattenHowToSteps(raw) {
 function normalizeInstructions(recipe) {
   const steps = flattenHowToSteps(recipe.recipeInstructions);
   if (!steps.length) return null;
-  return steps.map((s, i) => `${i + 1}. ${stripHtml(s)}`).join('\n');
+  return steps.map((s, i) => `${i + 1}. ${stripHtml(s)}`).join('\n\n');
 }
 
 function extractHtmlIngredients($) {
