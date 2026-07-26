@@ -248,8 +248,9 @@ async function sendShoppingList(ctx, recipe) {
 
   const lines = recipe.ingredients
     .split('\n')
-    .map((line) => `- [ ] ${line.trim()}`)
-    .filter((line) => line !== '- [ ]');
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => `🔹 ${line}`);
 
   const header = `🛒 Список покупок: ${recipe.title}`;
   const footer = recipe.source_url ? `\n\n🔗 Источник: ${recipe.source_url}` : '';
