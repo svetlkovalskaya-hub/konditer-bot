@@ -38,11 +38,17 @@ function decodeHtml(response, htmlBuffer) {
   }
 }
 
+function decodeHtmlEntities(value) {
+  if (!value || typeof value !== 'string') return value;
+  // cheerio раскодирует все HTML-сущности: &nbsp; &mdash; &#160; и т.д.
+  return cheerio.load(`<textarea>${value}</textarea>`)('textarea').text();
+}
+
 function stripHtml(value) {
   if (!value || typeof value !== 'string') return '';
-  return value
+  const decoded = decodeHtmlEntities(value);
+  return decoded
     .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }

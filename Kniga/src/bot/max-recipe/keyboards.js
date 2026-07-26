@@ -51,13 +51,21 @@ function recipeList(recipes, page, totalPages) {
 function recipeCardActions(recipeId) {
   return toInline([
     [
-      { text: '✏️ Редактировать', callback_data: `recipe_edit_${recipeId}` },
+      { text: '✏️ Редактировать', callback_data: `recipe_editmenu_${recipeId}` },
       { text: '🛒 Список покупок', callback_data: `recipe_shop_${recipeId}` },
     ],
     [
       { text: '🗑 Удалить', callback_data: `recipe_delete_${recipeId}` },
       { text: '« К списку', callback_data: 'myrecipes' },
     ],
+  ]);
+}
+
+function editMenu(recipeId) {
+  return toInline([
+    [{ text: '✏️ По частям', callback_data: `recipe_edit_${recipeId}` }],
+    [{ text: '📝 Весь рецепт сразу', callback_data: `recipe_edit_all_${recipeId}` }],
+    [{ text: '« Назад к рецепту', callback_data: `recipe_open_${recipeId}` }],
   ]);
 }
 
@@ -103,6 +111,7 @@ module.exports = {
   searchMenu,
   recipeList,
   recipeCardActions,
+  editMenu,
   editFieldMenu,
   previewActions,
   confirmDelete,

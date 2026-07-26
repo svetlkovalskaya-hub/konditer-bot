@@ -49,6 +49,60 @@ function splitText(text, limit = 3800) {
   return chunks;
 }
 
+function formatRecipeForEdit(recipe) {
+  const lines = [
+    'Название: ' + (recipe.title || ''),
+    '',
+    'Ингредиенты:',
+    recipe.ingredients || '',
+    '',
+    'Приготовление:',
+    recipe.instructions || '',
+    '',
+    'Порции: ' + (recipe.portions || '-'),
+  ];
+  return lines.join('\n');
+}
+
+function parseFullRecipeEdit(text) {
+  const markers = {
+    title: 'Название:',
+    ingredients: 'Ингредиенты:',
+    instructions: 'Приготовление:',
+    portions: 'Порции:',
+  };
+
+  const positions = {};
+  for (const [field, marker] of Object.entries(markers)) {
+    const idx = text.indexOf(marker);
+    if (idx !== -1) positions[field] = idx;
+  }
+
+  if (!positions.title && !positions.ingredients && !positions.instructions) {
+    return null;
+  }
+
+  const sortedFields = Object.keys(positions).sort((a, b) => positions[a] - positions[b]);
+  const result = {};
+
+  for (let i = 0; i < sortedFields.length; i++) {
+    const field = sortedFields[i];
+    const start = positions[field] + markers[field].length;
+    const end = i + 1 < sortedFields.length ? positions[sortedFields[i + 1]] : text.length;
+    let value = text.slice(start, end).trim();
+
+    if (field === 'title' || field === 'portions') {
+      value = value.replace(/\n/g, ' ').trim();
+    }
+    if (field === 'portions' && value === '-') {
+      value = null;
+    }
+    if (value) result[field] = value;
+  }
+
+  return result;
+}
+
 async function uploadImageFromUrl(imageUrl) {
   if (!imageUrl) return null;
   try {
@@ -379,6 +433,29 @@ function init() {
       return;
     }
 
+    // Редактирование всего рецепта сразу
+    if (s.mode === 'edit_all' && s.recipeId) {
+      const parsed = parseFullRecipeEdit(text);
+      if (!parsed) {
+        await ctx.reply('Не получилось распознать формат. Сохрани названия разделов: Название:, Ингредиенты:, Приготовление:, Порции:.');
+        return;
+      }
+
+      const result = recipeService.updateRecipe(s.recipeId, userId, parsed);
+      session.resetSession(userId);
+
+      if (!result.ok) {
+        await ctx.reply('Не удалось обновить рецепт. Попробуй ещё раз.', { attachments: [keyboards.mainMenu()] });
+        return;
+      }
+
+      const recipe = recipeService.getRecipeByIdAndUser(s.recipeId, userId);
+      await ctx.reply('✅ Рецепт обновлён.');
+      if (recipe) await sendRecipeCard(ctx, recipe);
+      else await sendMainMenu(ctx);
+      return;
+    }
+
     // По умолчанию: если прислали ссылку — сразу парсим
     if (isUrl(text)) {
       session.setMode(userId, 'await_link');
@@ -444,6 +521,33 @@ function init() {
         return;
       }
       await sendRecipeCard(ctx, recipe);
+      return;
+    }
+
+    if (data.startsWith('recipe_editmenu_')) {
+      const id = Number(data.replace('recipe_editmenu_', ''));
+      const recipe = recipeService.getRecipeByIdAndUser(id, userId);
+      if (!recipe) {
+        await ctx.reply('Рецепт не найден.', { attachments: [keyboards.mainMenu()] });
+        return;
+      }
+      await ctx.reply('Выбери способ редактирования:', {
+        attachments: [keyboards.editMenu(id)],
+      });
+      return;
+    }
+
+    if (data.startsWith('recipe_edit_all_')) {
+      const id = Number(data.replace('recipe_edit_all_', ''));
+      const recipe = recipeService.getRecipeByIdAndUser(id, userId);
+      if (!recipe) {
+        await ctx.reply('Рецепт не найден.', { attachments: [keyboards.mainMenu()] });
+        return;
+      }
+      session.setMode(userId, 'edit_all', { recipeId: id });
+      await ctx.reply(
+        `Пришли исправленный рецепт целиком в таком формате:\n\n${formatRecipeForEdit(recipe)}\n\nНе меняй названия разделов — я по ним разберу текст.`
+      );
       return;
     }
 
