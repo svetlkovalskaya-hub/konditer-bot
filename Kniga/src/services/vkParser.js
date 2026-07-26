@@ -13,6 +13,17 @@ function cleanLine(line) {
     .trim();
 }
 
+function cleanRecipeTitle(value) {
+  if (!value || typeof value !== 'string') return '';
+  return value
+    .replace(/[:\-–—]\s*рецепт/gi, '')
+    .replace(/рецепт\s*[:\-–—]/gi, '')
+    .replace(/рецепт/gi, '')
+    .replace(/\s+/g, ' ')
+    .replace(/\s*[:\-–—]\s*$/, '')
+    .trim();
+}
+
 function parseVkWallUrl(url) {
   const match = url.match(/vk\.(ru|com)\/wall(-?\d+)_(\d+)/i);
   if (!match) return null;
@@ -69,7 +80,7 @@ async function parseVkPost(url) {
   const text = post.text || '';
   if (text) {
     const lines = text.split('\n').map((s) => s.trim()).filter(Boolean);
-    result.title = lines[0] || 'Рецепт из VK';
+    result.title = cleanRecipeTitle(lines[0]) || 'Рецепт из VK';
 
     const ingredients = [];
     const instructions = [];

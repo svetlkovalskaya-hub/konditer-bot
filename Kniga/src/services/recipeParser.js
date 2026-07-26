@@ -53,6 +53,19 @@ function stripHtml(value) {
     .trim();
 }
 
+function cleanRecipeTitle(value) {
+  const title = stripHtml(value);
+  if (!title) return title;
+  // Убираем из названия хвосты вроде ": рецепт", "- рецепт", "рецепт ..." и лишние пробелы
+  return title
+    .replace(/[:\-–—]\s*рецепт/gi, '')
+    .replace(/рецепт\s*[:\-–—]/gi, '')
+    .replace(/рецепт/gi, '')
+    .replace(/\s+/g, ' ')
+    .replace(/\s*[:\-–—]\s*$/, '')
+    .trim();
+}
+
 function toAbsoluteUrl(value, baseUrl) {
   if (!value) return null;
   let url = value;
@@ -239,7 +252,7 @@ async function parseRecipe(url) {
   const recipe = extractRecipeSchema($);
 
   if (recipe) {
-    result.title = stripHtml(recipe.name) || ogTitle || h1 || null;
+    result.title = cleanRecipeTitle(recipe.name) || cleanRecipeTitle(ogTitle) || cleanRecipeTitle(h1) || null;
     result.ingredients = extractHtmlIngredients($) || normalizeIngredients(recipe);
     result.instructions = normalizeInstructions(recipe);
     result.imageUrl = toAbsoluteUrl(recipe.image, url) || toAbsoluteUrl(ogImage, url);
@@ -247,7 +260,7 @@ async function parseRecipe(url) {
   }
 
   // Fallback, если schema.org не дал данных
-  if (!result.title) result.title = ogTitle || h1 || null;
+  if (!result.title) result.title = cleanRecipeTitle(ogTitle) || cleanRecipeTitle(h1) || null;
   if (!result.imageUrl) result.imageUrl = toAbsoluteUrl(ogImage, url);
   if (!result.ingredients) result.ingredients = heuristicIngredients($);
   if (!result.instructions) result.instructions = heuristicInstructions($) || ogDesc || null;
