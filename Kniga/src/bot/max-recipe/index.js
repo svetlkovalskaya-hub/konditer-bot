@@ -164,7 +164,10 @@ function createImageAttachment(recipe) {
 async function sendRecipeCard(ctx, recipe) {
   const text = formatRecipeText(recipe);
   const chunks = splitText(text);
-  const image = createImageAttachment(recipe) || (await uploadImageFromUrl(recipe.image_url));
+  let image = createImageAttachment(recipe);
+  if (!image && recipe.image_url) {
+    image = await uploadImageFromUrl(recipe.image_url);
+  }
 
   if (image && chunks.length === 1) {
     await ctx.reply(chunks[0], { attachments: [image.toJson(), keyboards.recipeCardActions(recipe.id)] });
