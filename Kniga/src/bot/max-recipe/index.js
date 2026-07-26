@@ -35,13 +35,13 @@ function getImageUrlFromMessage(ctx) {
 
 function formatRecipeText(recipe) {
   const lines = [];
-  lines.push(`📖 ${recipe.title || 'Без названия'}`);
+  lines.push(`**📖 ${recipe.title || 'Без названия'}**`);
   if (recipe.portions) lines.push(`🍽 Порций: ${recipe.portions}`);
   if (recipe.ingredients) {
-    lines.push(`\n🥕 Ингредиенты:\n${recipe.ingredients}`);
+    lines.push(`\n**🥕 Ингредиенты:**\n${recipe.ingredients}`);
   }
   if (recipe.instructions) {
-    lines.push(`\n👩‍🍳 Приготовление:\n${recipe.instructions}`);
+    lines.push(`\n**👩‍🍳 Приготовление:**\n${recipe.instructions}`);
   }
   if (recipe.source_url) {
     lines.push(`\n🔗 Источник: ${recipe.source_url}`);
