@@ -621,7 +621,9 @@ function init() {
 
     if (data.startsWith('recipe_open_')) {
       const id = Number(data.replace('recipe_open_', ''));
+      console.log('DEBUG OPEN RECIPE id:', id, 'userId:', userId);
       const recipe = recipeService.getRecipeByIdAndUser(id, userId);
+      console.log('DEBUG FOUND RECIPE:', recipe ? { id: recipe.id, title: recipe.title } : null);
       if (!recipe) {
         await ctx.reply('Рецепт не найден.', { attachments: [keyboards.mainMenu()] });
         return;
