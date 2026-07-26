@@ -1,5 +1,18 @@
 const config = require('../config');
 
+// Смайлы-цифры, которые часто используются в рецептах VK вместо номеров пунктов
+const NUMBER_EMOJIS = /[0123456789]️?⃣/g;
+const BULLET_EMOJIS = /[🔹🔸✅⬜️🔘▪️▫️◾️◽️]/g;
+
+function cleanLine(line) {
+  return line
+    .replace(NUMBER_EMOJIS, '')
+    .replace(BULLET_EMOJIS, '')
+    .replace(/^\s*[-–—.]\s*/, '')
+    .replace(/^\d+[).]\s*/, '')
+    .trim();
+}
+
 function parseVkWallUrl(url) {
   const match = url.match(/vk\.(ru|com)\/wall(-?\d+)_(\d+)/i);
   if (!match) return null;
@@ -75,8 +88,11 @@ async function parseVkPost(url) {
         continue;
       }
 
-      if (mode === 'ingredients') ingredients.push(line);
-      else if (mode === 'instructions') instructions.push(line);
+      const cleaned = cleanLine(line);
+      if (!cleaned) continue;
+
+      if (mode === 'ingredients') ingredients.push(cleaned);
+      else if (mode === 'instructions') instructions.push(cleaned);
     }
 
     // Если не нашли разделы — сохраняем весь текст как инструкции
