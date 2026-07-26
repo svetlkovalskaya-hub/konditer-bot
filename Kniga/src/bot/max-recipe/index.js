@@ -301,6 +301,7 @@ function init() {
 
   bot.on('message_created', async (ctx) => {
     const userId = extractUserId(ctx);
+    console.log('DEBUG USER ID:', userId, 'sender:', JSON.stringify(ctx.message?.sender), 'user:', JSON.stringify(ctx.user));
     if (!userId) return;
 
     const s = session.getSession(userId);
