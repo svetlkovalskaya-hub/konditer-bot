@@ -5,3 +5,9 @@ uploads/
 *.db
 *.log
 .DS_Store
+*.traineddata
+gastronom.html
+vk.html
+vk_m.html
+tmp_*.js
+screen.jpg

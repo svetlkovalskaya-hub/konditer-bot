@@ -5,6 +5,8 @@ const config = require('../../config');
 const recipeService = require('../../services/recipeService');
 const recipeParser = require('../../services/recipeParser');
 const vkParser = require('../../services/vkParser');
+const ocrService = require('../../services/ocrService');
+const { parseOcrRecipeText } = require('../../services/textRecipeParser');
 const keyboards = require('./keyboards');
 const session = require('./session');
 
@@ -17,6 +19,13 @@ function extractUserId(ctx) {
 
 function isUrl(text) {
   return /^https?:\/\//i.test(text);
+}
+
+function getImageUrlFromMessage(ctx) {
+  const attachments = ctx.message?.body?.attachments || [];
+  const image = attachments.find((a) => a.type === 'image');
+  if (!image) return null;
+  return image.payload?.url || null;
 }
 
 function formatRecipeText(recipe) {
@@ -299,6 +308,49 @@ function init() {
       return;
     }
 
+    // Режим ожидания скриншота
+    if (s.mode === 'await_screenshot') {
+      const imageUrl = getImageUrlFromMessage(ctx);
+      if (!imageUrl) {
+        await ctx.reply('Пришли, пожалуйста, картинку со скриншотом рецепта.');
+        return;
+      }
+
+      await ctx.reply('Распознаю текст на скриншоте...');
+      try {
+        const rawText = await ocrService.recognizeText(imageUrl, config.uploadsDir);
+        const parsed = parseOcrRecipeText(rawText);
+
+        s.draft = {
+          title: parsed.title,
+          source_url: null,
+          image_url: imageUrl,
+          ingredients: parsed.ingredients,
+          instructions: parsed.instructions,
+          portions: parsed.portions,
+        };
+        s.mode = 'preview';
+
+        if (!parsed.title && !parsed.ingredients && !parsed.instructions) {
+          await ctx.reply('Не удалось распознать текст на скриншоте. Попробуй другую картинку или добавь рецепт вручную.', {
+            attachments: [keyboards.mainMenu()],
+          });
+          session.resetSession(userId);
+          return;
+        }
+
+        await ctx.reply('Текст распознан. Проверь и, если нужно, отредактируй перед сохранением.');
+        await sendPreview(ctx, s.draft);
+      } catch (err) {
+        console.error('Ошибка OCR:', err.message);
+        await ctx.reply(`Не удалось распознать скриншот: ${err.message}\n\nПопробуй добавить рецепт вручную.`, {
+          attachments: [keyboards.mainMenu()],
+        });
+        session.resetSession(userId);
+      }
+      return;
+    }
+
     // Режим ожидания ссылки
     if (s.mode === 'await_link') {
       if (!isUrl(text)) {
@@ -471,6 +523,14 @@ function init() {
       return;
     }
 
+    // По умолчанию: если прислали картинку — предлагаем распознать
+    const imageUrl = getImageUrlFromMessage(ctx);
+    if (imageUrl) {
+      session.setMode(userId, 'await_screenshot');
+      await ctx.reply('Хочешь добавить рецепт по скриншоту? Пришли эту же картинку ещё раз или нажми "📸 Добавить по скриншоту" в меню, и я распознаю текст.');
+      return;
+    }
+
     // По умолчанию: если прислали ссылку — сразу парсим
     if (isUrl(text)) {
       session.setMode(userId, 'await_link');
@@ -489,6 +549,9 @@ function init() {
           portions: parsed.portions,
         };
         s2.mode = 'preview';
+        if (parsed.isDraft) {
+          await ctx.reply('⚠️ VK не отдал полное описание клипа. Я собрала черновик из того, что есть. Дополни и отредактируй перед сохранением.');
+        }
         await sendPreview(ctx, s2.draft);
       } catch (err) {
         console.error('Ошибка парсинга рецепта:', err.message);
@@ -645,6 +708,12 @@ function init() {
     if (data === 'add_link') {
       session.setMode(userId, 'await_link');
       await ctx.reply('Пришли ссылку на рецепт.');
+      return;
+    }
+
+    if (data === 'add_screenshot') {
+      session.setMode(userId, 'await_screenshot');
+      await ctx.reply('Пришли скриншот рецепта. Я распознаю текст и соберу черновик.');
       return;
     }
 

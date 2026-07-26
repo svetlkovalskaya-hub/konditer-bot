@@ -75,9 +75,20 @@ async function parseVkPost(url) {
     imageUrl: null,
     sourceUrl: url,
     portions: null,
+    isDraft: false,
   };
 
-  const text = post.text || '';
+  const attachments = post.attachments || [];
+  const videoAttachment = attachments.find((a) => a.type === 'video');
+
+  let text = post.text || '';
+
+  // Если пост пустой, но есть видео-клип — берём описание из видео
+  if (!text.trim() && videoAttachment && videoAttachment.video) {
+    text = videoAttachment.video.description || '';
+    result.isDraft = true;
+  }
+
   if (text) {
     const lines = text.split('\n').map((s) => s.trim()).filter(Boolean);
     result.title = cleanRecipeTitle(lines[0]) || 'Рецепт из VK';
@@ -119,12 +130,17 @@ async function parseVkPost(url) {
     }
   }
 
-  // Картинка из поста
-  const attachments = post.attachments || [];
+  // Картинка из поста или обложка видео
   const photoAttachment = attachments.find((a) => a.type === 'photo');
   if (photoAttachment && photoAttachment.photo) {
     const sizes = photoAttachment.photo.sizes || [];
     const best = sizes
+      .filter((s) => s.url)
+      .sort((a, b) => (b.width || 0) - (a.width || 0))[0];
+    if (best) result.imageUrl = best.url;
+  } else if (videoAttachment && videoAttachment.video) {
+    const images = videoAttachment.video.image || [];
+    const best = images
       .filter((s) => s.url)
       .sort((a, b) => (b.width || 0) - (a.width || 0))[0];
     if (best) result.imageUrl = best.url;

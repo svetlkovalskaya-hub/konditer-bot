@@ -13,6 +13,7 @@ function mainMenu() {
   return toInline([
     [{ text: '📚 Мои рецепты', callback_data: 'myrecipes' }],
     [{ text: '➕ Добавить рецепт по ссылке', callback_data: 'add_link' }],
+    [{ text: '📸 Добавить по скриншоту', callback_data: 'add_screenshot' }],
     [{ text: '✍️ Добавить рецепт вручную', callback_data: 'add_manual' }],
     [
       { text: '🔍 Поиск', callback_data: 'search' },
