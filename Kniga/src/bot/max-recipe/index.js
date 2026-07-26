@@ -4,6 +4,7 @@ const fs = require('fs');
 const config = require('../../config');
 const recipeService = require('../../services/recipeService');
 const recipeParser = require('../../services/recipeParser');
+const vkParser = require('../../services/vkParser');
 const keyboards = require('./keyboards');
 const session = require('./session');
 
@@ -307,7 +308,9 @@ function init() {
 
       await ctx.reply('Секунду, смотрю, что там на сайте...');
       try {
-        const parsed = await recipeParser.parseRecipe(text);
+        const parsed = vkParser.isVkUrl(text)
+          ? await vkParser.parseVkPost(text)
+          : await recipeParser.parseRecipe(text);
         s.draft = {
           title: parsed.title,
           source_url: parsed.sourceUrl,
@@ -473,7 +476,9 @@ function init() {
       session.setMode(userId, 'await_link');
       await ctx.reply('Секунду, смотрю, что там на сайте...');
       try {
-        const parsed = await recipeParser.parseRecipe(text);
+        const parsed = vkParser.isVkUrl(text)
+          ? await vkParser.parseVkPost(text)
+          : await recipeParser.parseRecipe(text);
         const s2 = session.getSession(userId);
         s2.draft = {
           title: parsed.title,

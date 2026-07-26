@@ -11,6 +11,7 @@ function getDataDir() {
 
 module.exports = {
   maxRecipeBotToken: process.env.MAX_RECIPE_BOT_TOKEN || null,
+  vkServiceToken: process.env.VK_SERVICE_TOKEN || null,
   port: process.env.PORT || 3001,
   nodeEnv: process.env.NODE_ENV || 'development',
   dataDir: getDataDir(),
