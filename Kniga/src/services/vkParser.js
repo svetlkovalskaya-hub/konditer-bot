@@ -48,44 +48,39 @@ function parseVkWallUrl(url) {
   const match = url.match(/vk\.(ru|com)\/wall(-?\d+)_(\d+)/i);
   if (!match) return null;
   return {
+    type: 'wall',
     ownerId: match[2],
     postId: match[3],
   };
 }
 
+function parseVkClipUrl(url) {
+  const match = url.match(/vk\.(ru|com)\/clip(-?\d+)_(\d+)/i);
+  if (!match) return null;
+  return {
+    type: 'clip',
+    ownerId: match[2],
+    videoId: match[3],
+  };
+}
+
 function isVkUrl(url) {
-  return /vk\.(ru|com)\/wall/i.test(url);
+  return /vk\.(ru|com)\/(wall|clip)/i.test(url);
+}
+
+async function fetchVkVideo(ownerId, videoId) {
+  const apiUrl = `https://api.vk.com/method/video.get?videos=${ownerId}_${videoId}&access_token=${config.vkServiceToken}&v=5.199`;
+  const response = await fetch(apiUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+  const data = await response.json();
+  if (data.error) {
+    throw new Error(`VK API ошибка: ${data.error.error_msg || JSON.stringify(data.error)}`);
+  }
+  return data.response?.items?.[0] || null;
 }
 
 async function parseVkPost(url) {
   if (!config.vkServiceToken) {
     throw new Error('VK_SERVICE_TOKEN не задан. Добавь его в .env, чтобы читать посты VK.');
-  }
-
-  const parsed = parseVkWallUrl(url);
-  if (!parsed) {
-    throw new Error('Не удалось распознать ссылку на пост VK. Ожидается формат: https://vk.com/wall-123_456 или https://vk.ru/wall-123_456');
-  }
-
-  const apiUrl = `https://api.vk.com/method/wall.getById?posts=${parsed.ownerId}_${parsed.postId}&extended=1&access_token=${config.vkServiceToken}&v=5.199`;
-
-  let data;
-  try {
-    const response = await fetch(apiUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0' },
-    });
-    data = await response.json();
-  } catch (err) {
-    throw new Error(`Ошибка запроса к VK API: ${err.message}`);
-  }
-
-  if (data.error) {
-    throw new Error(`VK API ошибка: ${data.error.error_msg || JSON.stringify(data.error)}`);
-  }
-
-  const post = data.response?.items?.[0];
-  if (!post) {
-    throw new Error('VK не вернул пост. Возможно, он удалён или группа закрыта.');
   }
 
   const result = {
@@ -98,15 +93,49 @@ async function parseVkPost(url) {
     isDraft: false,
   };
 
-  const attachments = post.attachments || [];
+  let post = null;
+  let video = null;
+
+  const clipParsed = parseVkClipUrl(url);
+  const wallParsed = parseVkWallUrl(url);
+
+  if (clipParsed) {
+    video = await fetchVkVideo(clipParsed.ownerId, clipParsed.videoId);
+    result.isDraft = true;
+  } else if (wallParsed) {
+    const apiUrl = `https://api.vk.com/method/wall.getById?posts=${wallParsed.ownerId}_${wallParsed.postId}&extended=1&access_token=${config.vkServiceToken}&v=5.199`;
+    const response = await fetch(apiUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+    const data = await response.json();
+    if (data.error) {
+      throw new Error(`VK API ошибка: ${data.error.error_msg || JSON.stringify(data.error)}`);
+    }
+    post = data.response?.items?.[0];
+    if (!post) {
+      throw new Error('VK не вернул пост. Возможно, он удалён или группа закрыта.');
+    }
+  } else {
+    throw new Error('Не удалось распознать ссылку VK. Ожидается формат: https://vk.com/wall-123_456, https://vk.ru/wall-123_456, https://vk.com/clip-123_456 или https://vk.ru/clip-123_456');
+  }
+
+  let text = post?.text || '';
+  const attachments = post?.attachments || [];
   const videoAttachment = attachments.find((a) => a.type === 'video');
 
-  let text = post.text || '';
+  // Если это прямая ссылка на клип — берём описание из video.get
+  if (clipParsed && video && video.description) {
+    text = video.description;
+    result.isDraft = true;
+  }
 
   // Если пост пустой, но есть видео-клип — берём описание из видео
   if (!text.trim() && videoAttachment && videoAttachment.video) {
-    text = videoAttachment.video.description || '';
+    video = videoAttachment.video;
+    text = video.description || '';
     result.isDraft = true;
+  }
+
+  if (!video && videoAttachment && videoAttachment.video) {
+    video = videoAttachment.video;
   }
 
   if (text) {
@@ -151,7 +180,7 @@ async function parseVkPost(url) {
       // строки с количеством и единицей измерения считаем ингредиентами,
       // остальное — инструкции.
       const body = lines.slice(1);
-      const titleLine = result.isDraft ? cleanRecipeTitle(findDishTitleInLines(body) || lines[0]) : null;
+      const titleLine = result.isDraft ? cleanRecipeTitle(result.title) : null;
 
       let titleFoundIndex = -1;
       if (titleLine) {
@@ -191,8 +220,8 @@ async function parseVkPost(url) {
       .filter((s) => s.url)
       .sort((a, b) => (b.width || 0) - (a.width || 0))[0];
     if (best) result.imageUrl = best.url;
-  } else if (videoAttachment && videoAttachment.video) {
-    const images = videoAttachment.video.image || [];
+  } else if (video) {
+    const images = video.image || [];
     const best = images
       .filter((s) => s.url)
       .sort((a, b) => (b.width || 0) - (a.width || 0))[0];

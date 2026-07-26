@@ -298,11 +298,6 @@ function init() {
     const userId = extractUserId(ctx);
     if (!userId) return;
 
-    console.log('INCOMING MESSAGE:', JSON.stringify({
-      text: ctx.message?.body?.text,
-      attachments: ctx.message?.body?.attachments?.map((a) => ({ type: a.type, payload: a.payload })),
-    }, null, 2));
-
     const s = session.getSession(userId);
     const text = (ctx.message?.body?.text || '').trim();
     const attachments = ctx.message?.body?.attachments || [];
@@ -544,7 +539,6 @@ function init() {
         const parsed = vkParser.isVkUrl(text)
           ? await vkParser.parseVkPost(text)
           : await recipeParser.parseRecipe(text);
-        console.log('PARSED RECIPE:', JSON.stringify(parsed, null, 2));
         const s2 = session.getSession(userId);
         s2.draft = {
           title: parsed.title,
@@ -560,7 +554,7 @@ function init() {
         }
         await sendPreview(ctx, s2.draft);
       } catch (err) {
-        console.error('FULL PARSE ERROR:', err.stack || err.message);
+        console.error('Ошибка парсинга рецепта:', err.message);
         console.error('Ошибка парсинга рецепта:', err.message);
         await ctx.reply(`Не удалось распарсить ссылку: ${err.message}\n\nПопробуй добавить рецепт вручную.`, {
           attachments: [keyboards.mainMenu()],
