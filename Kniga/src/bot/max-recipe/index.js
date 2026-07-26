@@ -28,11 +28,15 @@ function isUrl(text) {
   return /^https?:\/\//i.test(text);
 }
 
-function getImageUrlFromMessage(ctx) {
+function getImageAttachmentFromMessage(ctx) {
   const attachments = ctx.message?.body?.attachments || [];
-  const image = attachments.find((a) => a.type === 'image');
+  return attachments.find((a) => a.type === 'image') || null;
+}
+
+function getImageUrlFromMessage(ctx) {
+  const image = getImageAttachmentFromMessage(ctx);
   if (!image) return null;
-  return image.payload?.url || null;
+  return image.payload?.url || image.payload?.src || null;
 }
 
 function formatRecipeText(recipe) {
@@ -120,8 +124,20 @@ function parseFullRecipeEdit(text) {
   return result;
 }
 
+function looksLikeImageUrl(url) {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    const imageExts = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp'];
+    const ext = path.extname(parsed.pathname).toLowerCase();
+    return imageExts.includes(ext);
+  } catch {
+    return false;
+  }
+}
+
 async function uploadImageFromUrl(imageUrl) {
-  if (!imageUrl) return null;
+  if (!imageUrl || !looksLikeImageUrl(imageUrl)) return null;
   try {
     const response = await fetch(imageUrl, {
       headers: {
@@ -155,7 +171,7 @@ function createImageAttachment(recipe) {
   if (recipe.image_path) {
     return new ImageAttachment({ token: recipe.image_path });
   }
-  if (recipe.image_url) {
+  if (recipe.image_url && looksLikeImageUrl(recipe.image_url)) {
     return new ImageAttachment({ url: recipe.image_url });
   }
   return null;
@@ -310,8 +326,7 @@ function init() {
 
     const s = session.getSession(userId);
     const text = (ctx.message?.body?.text || '').trim();
-    const attachments = ctx.message?.body?.attachments || [];
-    const imageAttachment = attachments.find((a) => a.type === 'image');
+    const imageAttachment = getImageAttachmentFromMessage(ctx);
 
     if (text === '/start') {
       await sendMainMenu(ctx);
@@ -436,7 +451,7 @@ function init() {
       if (s.step === 'source') {
         s.draft.source_url = text === '-' || !isUrl(text) ? null : text;
         s.step = 'photo';
-        await ctx.reply('Пришли ссылку на фото блюда или напиши «-».');
+        await ctx.reply('Пришли фото блюда или ссылку на фото. Если без фото — напиши «-».');
         return;
       }
 
@@ -445,6 +460,11 @@ function init() {
           s.draft.image_url = text;
         } else if (imageAttachment?.payload?.token) {
           s.draft.image_path = imageAttachment.payload.token;
+        } else if (imageAttachment?.payload?.url) {
+          s.draft.image_url = imageAttachment.payload.url;
+        } else if (text === '-') {
+          s.draft.image_url = null;
+          s.draft.image_path = null;
         }
         await saveDraft(ctx, userId);
         return;
