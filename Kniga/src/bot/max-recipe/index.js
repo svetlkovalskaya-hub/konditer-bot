@@ -298,6 +298,11 @@ function init() {
     const userId = extractUserId(ctx);
     if (!userId) return;
 
+    console.log('INCOMING MESSAGE:', JSON.stringify({
+      text: ctx.message?.body?.text,
+      attachments: ctx.message?.body?.attachments?.map((a) => ({ type: a.type, payload: a.payload })),
+    }, null, 2));
+
     const s = session.getSession(userId);
     const text = (ctx.message?.body?.text || '').trim();
     const attachments = ctx.message?.body?.attachments || [];
