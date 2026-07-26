@@ -510,15 +510,35 @@ function init() {
         return;
       }
 
-      let value = text;
-      if ((field === 'source_url' || field === 'image_url') && text && !isUrl(text)) {
-        await ctx.reply('Нужна ссылка, начинающаяся с http:// или https://. Попробуй ещё раз.');
-        return;
-      }
-
-      if (text === '-') value = null;
       const update = {};
-      update[field] = value;
+
+      if (field === 'image') {
+        if (imageAttachment?.payload?.token) {
+          update.image_path = imageAttachment.payload.token;
+          update.image_url = null;
+        } else if (imageAttachment?.payload?.url) {
+          update.image_url = imageAttachment.payload.url;
+          update.image_path = null;
+        } else if (text === '-') {
+          update.image_url = null;
+          update.image_path = null;
+        } else if (isUrl(text)) {
+          update.image_url = text;
+          update.image_path = null;
+        } else {
+          await ctx.reply('Пришли новое фото, ссылку на фото или «-», чтобы удалить.');
+          return;
+        }
+      } else {
+        let value = text;
+        if ((field === 'source_url' || field === 'image_url') && text && !isUrl(text)) {
+          await ctx.reply('Нужна ссылка, начинающаяся с http:// или https://. Попробуй ещё раз.');
+          return;
+        }
+
+        if (text === '-') value = null;
+        update[field] = value;
+      }
 
       const result = recipeService.updateRecipe(s.recipeId, userId, update);
       session.resetSession(userId);
@@ -717,6 +737,7 @@ function init() {
         portions: 'Напиши количество порций (или «-»).',
         source_url: 'Напиши новую ссылку на источник (или «-»).',
         image_url: 'Напиши новую ссылку на фото (или «-»).',
+        image: 'Пришли новое фото блюда, ссылку на фото или «-», чтобы удалить фото.',
       };
       await ctx.reply(labels[field] || 'Напиши новое значение.');
       return;
@@ -759,6 +780,25 @@ function init() {
         return;
       }
       await ctx.reply('🗑 Рецепт удалён.', { attachments: [keyboards.mainMenu()] });
+      return;
+    }
+
+    if (data.startsWith('recipe_clear_image_')) {
+      const id = Number(data.replace('recipe_clear_image_', ''));
+      const recipe = recipeService.getRecipeByIdAndUser(id, userId);
+      if (!recipe) {
+        await ctx.reply('Рецепт не найден.', { attachments: [keyboards.mainMenu()] });
+        return;
+      }
+      const result = recipeService.updateRecipe(id, userId, { image_url: null, image_path: null });
+      if (!result.ok) {
+        await ctx.reply('Не удалось удалить фото. Попробуй ещё раз.', { attachments: [keyboards.mainMenu()] });
+        return;
+      }
+      const updated = recipeService.getRecipeByIdAndUser(id, userId);
+      await ctx.reply('🗑 Фото удалено.');
+      if (updated) await sendRecipeCard(ctx, updated);
+      else await sendMainMenu(ctx);
       return;
     }
 

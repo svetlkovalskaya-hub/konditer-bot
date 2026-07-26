@@ -77,7 +77,10 @@ function editFieldMenu(recipeId) {
     [{ text: 'Способ приготовления', callback_data: `edit_field_${recipeId}_instructions` }],
     [{ text: 'Порции', callback_data: `edit_field_${recipeId}_portions` }],
     [{ text: 'Ссылка на источник', callback_data: `edit_field_${recipeId}_source_url` }],
-    [{ text: 'Фото (ссылкой)', callback_data: `edit_field_${recipeId}_image_url` }],
+    [
+      { text: '📷 Заменить фото', callback_data: `edit_field_${recipeId}_image` },
+      { text: '🗑 Удалить фото', callback_data: `recipe_clear_image_${recipeId}` },
+    ],
     [{ text: '« Назад к рецепту', callback_data: `recipe_open_${recipeId}` }],
   ]);
 }
